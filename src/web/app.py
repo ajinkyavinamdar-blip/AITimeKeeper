@@ -1,6 +1,8 @@
 from flask import Flask, render_template, jsonify, request, session, redirect, url_for, g
 import datetime
+import os
 from ..database import (
+    init_db,
     get_todays_activities, get_summary_stats, get_weekly_summary_stats, get_application_stats, get_application_activities,
     get_clients, add_client, update_client, get_mappings, add_mapping, get_unassigned_summary,
     get_categories, get_category_mappings, add_category_mapping,
@@ -24,7 +26,13 @@ from ..db_extensions import (
 )
 
 app = Flask(__name__)
-app.secret_key = 'dev_key_for_local_use_only'  # Should be env var in prod
+app.secret_key = os.environ.get('SECRET_KEY', 'dev_key_change_in_production')
+
+# Initialise DB schema on startup (critical for Render/gunicorn — main.py is not used)
+try:
+    init_db()
+except Exception as e:
+    print(f'[startup] init_db failed: {e}')
 
 @app.before_request
 def load_logged_in_user():
