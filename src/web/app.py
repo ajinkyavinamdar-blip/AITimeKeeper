@@ -34,16 +34,6 @@ try:
 except Exception as e:
     print(f'[startup] init_db failed: {e}')
 
-import traceback
-
-@app.errorhandler(Exception)
-def handle_exception(e):
-    """Temporary: return full traceback so we can see what crashes on Render."""
-    tb = traceback.format_exc()
-    print(tb)  # always log to Render logs
-    return f'<pre>{tb}</pre>', 500
-
-
 @app.before_request
 def load_logged_in_user():
     user_id = session.get('user_id')
