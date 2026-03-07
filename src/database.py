@@ -5,10 +5,14 @@ import secrets
 
 DB_PATH = os.environ.get('DATABASE_PATH') or os.path.join(os.path.dirname(os.path.dirname(__file__)), 'data', 'timesheet.db')
 
+# Ensure the data directory exists (important on Render where data/ is gitignored)
+os.makedirs(os.path.dirname(DB_PATH), exist_ok=True)
+
 SEED_ADMIN_EMAIL = 'Ajinkya@CFOLogic.com'
 SEED_ADMIN_NAME = 'Ajinkya'
 
 def init_db():
+    os.makedirs(os.path.dirname(DB_PATH), exist_ok=True)
     conn = sqlite3.connect(DB_PATH)
     c = conn.cursor()
     c.execute('''
