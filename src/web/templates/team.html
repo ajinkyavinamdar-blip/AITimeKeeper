@@ -1,0 +1,788 @@
+{% extends "application.html" %}
+
+{% block header_left %}
+<div>
+    <h1 class="text-xl font-bold text-white tracking-tight">Team View</h1>
+    <div class="flex items-center gap-2 mt-1">
+        <div class="w-1.5 h-1.5 rounded-full bg-violet-500 animate-pulse"></div>
+        <span class="text-[10px] font-bold text-violet-400 uppercase tracking-wider">Manager Analytics</span>
+    </div>
+</div>
+{% endblock %}
+
+{% block content %}
+<div class="space-y-4 pb-6">
+
+    <!-- ── Header: Title + Date Navigator + Filters ─────────────── -->
+    <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-3">
+        <div>
+            <h1 class="text-2xl font-bold text-white tracking-tight" id="team-title">Team Performance</h1>
+            <p class="text-slate-500 text-xs mt-1">Client · Category · Member Breakdown</p>
+        </div>
+        <div class="flex flex-wrap items-center gap-2">
+            <!-- Member Filter -->
+            <select id="filter-member" onchange="applyFilters()"
+                class="bg-slate-800 border border-slate-700 text-slate-300 text-[10px] font-semibold rounded-xl px-3 py-2 outline-none focus:border-violet-500 hover:border-slate-600 transition-colors cursor-pointer">
+                <option value="">All Members</option>
+            </select>
+            <!-- Client Filter -->
+            <select id="filter-client" onchange="applyFilters()"
+                class="bg-slate-800 border border-slate-700 text-slate-300 text-[10px] font-semibold rounded-xl px-3 py-2 outline-none focus:border-violet-500 hover:border-slate-600 transition-colors cursor-pointer">
+                <option value="">All Clients</option>
+            </select>
+            <!-- Date Nav (same as dashboard) -->
+            <div class="flex items-center gap-4 bg-slate-800/50 p-1.5 rounded-2xl border border-slate-700/50 shadow-sm">
+                <div class="flex items-center gap-1 px-2">
+                    <button onclick="changeDay(-1)"
+                        class="p-1.5 hover:bg-slate-700/50 rounded-lg transition-colors text-slate-400">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5"
+                                d="M15 19l-7-7 7-7" />
+                        </svg>
+                    </button>
+                    <div id="day-label" class="px-3 text-[10px] font-bold text-slate-300 uppercase tracking-widest">
+                        Today
+                    </div>
+                    <button onclick="changeDay(1)"
+                        class="p-1.5 hover:bg-slate-700/50 rounded-lg transition-colors text-slate-400">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M9 5l7 7-7 7" />
+                        </svg>
+                    </button>
+                </div>
+                <div class="w-px h-6 bg-slate-700/50"></div>
+                <div class="flex bg-slate-900/50 rounded-xl p-1">
+                    <button id="toggle-day" onclick="setViewMode('day')"
+                        class="px-4 py-1.5 text-[10px] font-bold rounded-lg bg-violet-600 text-white shadow-lg shadow-violet-500/20 transition-all">Day</button>
+                    <button id="toggle-week" onclick="setViewMode('week')"
+                        class="px-4 py-1.5 text-[10px] font-bold rounded-lg text-slate-500 hover:text-slate-300 transition-all">Week</button>
+                    <button id="toggle-month" onclick="setViewMode('month')"
+                        class="px-4 py-1.5 text-[10px] font-bold rounded-lg text-slate-500 hover:text-slate-300 transition-all">Month</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ── Row 1: Total Time + Timeline ───────────────────────────── -->
+    <div class="grid grid-cols-1 lg:grid-cols-4 gap-5">
+        <!-- Total Time Card -->
+        <div
+            class="col-span-1 bg-slate-800/50 rounded-2xl p-6 border border-slate-700/50 backdrop-blur-sm flex flex-col justify-between">
+            <div>
+                <h3 class="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">Total Team Hours</h3>
+                <div class="text-3xl font-bold text-white mb-1" id="card-total">--</div>
+                <div class="text-[10px] text-slate-500 mt-1" id="card-date-label"></div>
+            </div>
+            <div class="mt-6 space-y-3">
+                <div class="flex items-center gap-2">
+                    <span class="text-xs text-emerald-400 font-semibold" id="card-billable">--</span>
+                    <span class="text-xs text-slate-600">billable</span>
+                    <span class="text-xs text-slate-500" id="card-billable-pct"></span>
+                </div>
+                <div class="flex items-center gap-2">
+                    <span class="text-xs text-slate-400 font-semibold" id="card-nonbillable">--</span>
+                    <span class="text-xs text-slate-600">non-billable</span>
+                </div>
+                <div class="w-full bg-slate-700 rounded-full h-2">
+                    <div class="bg-emerald-500 h-2 rounded-full transition-all" id="billable-bar" style="width:0%">
+                    </div>
+                </div>
+                <div class="text-[10px] text-slate-500">
+                    <span class="text-violet-400 font-bold" id="card-members">--</span> members tracked
+                </div>
+            </div>
+        </div>
+
+        <!-- Timeline Chart -->
+        <div
+            class="col-span-1 lg:col-span-3 bg-slate-800/50 rounded-2xl p-6 border border-slate-700/50 backdrop-blur-sm flex flex-col">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-xs font-semibold text-slate-400 uppercase tracking-wider">Timeline</h3>
+                <div class="text-xs text-slate-500">Hourly Focus &amp; Comms</div>
+            </div>
+            <div class="flex-1 w-full h-48">
+                <canvas id="teamTimelineChart"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <!-- ── Row 2: Clients · Category · (balanced) ──────────────────── -->
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-5">
+
+        <!-- Clients Card (same style as dashboard) -->
+        <div class="bg-slate-800/50 rounded-2xl p-6 border border-slate-700/50 backdrop-blur-sm flex flex-col">
+            <h3 class="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-4">Clients</h3>
+            <div class="flex-1 overflow-y-auto max-h-48 pr-2 space-y-4" id="team-client-bar-list">
+                <div class="text-center text-slate-500 text-xs py-10">Loading...</div>
+            </div>
+        </div>
+
+        <!-- Category Breakdown (same list style) -->
+        <div class="bg-slate-800/50 rounded-2xl p-6 border border-slate-700/50 backdrop-blur-sm flex flex-col">
+            <h3 class="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-4">Time Breakdown</h3>
+            <div class="flex-1 overflow-y-auto max-h-48 pr-2 space-y-4" id="team-category-list">
+                <div class="text-center text-slate-500 text-xs py-10">Loading...</div>
+            </div>
+        </div>
+
+        <!-- Scores Card (Focus / Meetings / Breaks) -->
+        <div
+            class="bg-slate-800/50 rounded-2xl p-6 border border-slate-700/50 backdrop-blur-sm flex flex-col justify-between">
+            <h3 class="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-4">Scores</h3>
+            <div class="flex justify-between items-center px-2">
+                <!-- Focus -->
+                <div class="flex flex-col items-center gap-2">
+                    <div class="relative w-20 h-20 flex items-center justify-center rounded-full" id="team-ring-focus"
+                        style="background: conic-gradient(#10B981 0%, #1e293b 0);">
+                        <div class="absolute inset-1 bg-slate-800 rounded-full flex items-center justify-center">
+                            <span class="text-sm font-bold text-white" id="team-score-focus">--%</span>
+                        </div>
+                    </div>
+                    <div class="text-center">
+                        <div class="text-xs font-bold text-slate-300">Focus</div>
+                        <div class="text-[10px] text-slate-500" id="team-focus-time">--</div>
+                    </div>
+                </div>
+                <!-- Meetings -->
+                <div class="flex flex-col items-center gap-2">
+                    <div class="relative w-20 h-20 flex items-center justify-center rounded-full" id="team-ring-meeting"
+                        style="background: conic-gradient(#A855F7 0%, #1e293b 0);">
+                        <div class="absolute inset-1 bg-slate-800 rounded-full flex items-center justify-center">
+                            <span class="text-sm font-bold text-white" id="team-score-meeting">--%</span>
+                        </div>
+                    </div>
+                    <div class="text-center">
+                        <div class="text-xs font-bold text-slate-300">Meetings</div>
+                        <div class="text-[10px] text-slate-500" id="team-meeting-time">--</div>
+                    </div>
+                </div>
+                <!-- Breaks (non-focus, non-meeting) -->
+                <div class="flex flex-col items-center gap-2">
+                    <div class="relative w-20 h-20 flex items-center justify-center rounded-full" id="team-ring-break"
+                        style="background: conic-gradient(#3B82F6 0%, #1e293b 0);">
+                        <div class="absolute inset-1 bg-slate-800 rounded-full flex items-center justify-center">
+                            <span class="text-sm font-bold text-white" id="team-score-break">--%</span>
+                        </div>
+                    </div>
+                    <div class="text-center">
+                        <div class="text-xs font-bold text-slate-300">Other</div>
+                        <div class="text-[10px] text-slate-500" id="team-break-time">--</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ── Row 3: Team Members (billable / non-billable split) ──────── -->
+    <div class="bg-slate-800/50 rounded-2xl p-6 border border-slate-700/50 backdrop-blur-sm">
+        <h3 class="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-4">Team Members</h3>
+        <div class="flex items-center gap-3 text-[10px] text-slate-500 mb-4">
+            <span class="flex items-center gap-1"><span
+                    class="inline-block w-2.5 h-2.5 rounded-sm bg-emerald-500"></span> Billable (has client)</span>
+            <span class="flex items-center gap-1"><span class="inline-block w-2.5 h-2.5 rounded-sm bg-slate-600"></span>
+                Non-Billable</span>
+        </div>
+        <div class="overflow-y-auto max-h-48 pr-2 space-y-4" id="members-list">
+            <div class="text-center text-slate-500 text-xs py-10">Loading...</div>
+        </div>
+    </div>
+
+</div>
+
+<!-- ════════ LEVEL 2: Drill-down Slide Panel ════════════════════════════ -->
+<div id="drill-panel"
+    class="fixed inset-y-0 right-0 w-full max-w-2xl bg-slate-900 border-l border-slate-700/50 shadow-2xl hidden z-40 flex flex-col">
+    <!-- Panel Header -->
+    <div class="flex items-center justify-between p-5 border-b border-slate-700/50">
+        <div>
+            <div class="text-[10px] text-slate-500 uppercase tracking-wider mb-0.5" id="drill-breadcrumb">Client ·
+                Member Split</div>
+            <h2 class="text-lg font-bold text-white" id="drill-title">Loading...</h2>
+        </div>
+        <button onclick="closeDrill()"
+            class="p-2 hover:bg-slate-800 rounded-xl transition-colors text-slate-400 hover:text-white">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+        </button>
+    </div>
+    <!-- Panel Content -->
+    <div id="drill-content" class="flex-1 overflow-y-auto p-5 space-y-3">
+        <div class="text-center text-slate-500 py-20">Loading...</div>
+    </div>
+</div>
+
+<!-- ════════ LEVEL 3: Member Detail Modal ══════════════════════════════ -->
+<div id="member-modal"
+    class="fixed inset-0 bg-slate-900/80 backdrop-blur-sm hidden flex items-center justify-center z-50">
+    <div
+        class="bg-slate-800 rounded-2xl border border-slate-700 w-full max-w-5xl max-h-[92vh] flex flex-col shadow-2xl">
+        <!-- Modal Header -->
+        <div class="p-5 border-b border-slate-700 flex justify-between items-start">
+            <div>
+                <div class="text-[10px] text-violet-400 uppercase tracking-wider font-bold mb-1" id="modal-breadcrumb">
+                    Team · Member Detail</div>
+                <h2 class="text-xl font-bold text-white" id="modal-member-name">Member</h2>
+                <p class="text-xs text-slate-500 mt-0.5" id="modal-date-label"></p>
+            </div>
+            <button onclick="closeMemberModal()"
+                class="p-2 hover:bg-slate-700 rounded-xl text-slate-400 hover:text-white transition-colors">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+            </button>
+        </div>
+        <!-- Modal Body -->
+        <div class="flex-1 overflow-y-auto p-5 grid grid-cols-1 lg:grid-cols-3 gap-5" id="modal-body">
+            <div class="col-span-3 text-center text-slate-500 py-20">Loading...</div>
+        </div>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+    // ─── State ─────────────────────────────────────────────────────────────────
+    let teamData = null;
+    let memberNameMap = {};
+    let teamTimelineChartInst = null;
+
+    // Date navigator state
+    let viewMode = 'day';   // 'day' | 'week' | 'month'
+    let dateOffset = 0;     // days offset from today (day mode) or weeks (week mode)
+
+    // Derived range used for team summary
+    let startDate = '', endDate = '';
+
+    // ─── Helpers ────────────────────────────────────────────────────────────────
+    function fmtTime(sec) {
+        if (!sec || sec <= 0) return '0m';
+        const h = Math.floor(sec / 3600);
+        const m = Math.floor((sec % 3600) / 60);
+        return h > 0 ? `${h}h ${m}m` : `${m}m`;
+    }
+
+    function getToday() { return new Date().toISOString().split('T')[0]; }
+
+    function getMonday() {
+        const d = new Date();
+        const day = d.getDay() || 7;
+        d.setDate(d.getDate() - day + 1);
+        return d.toISOString().split('T')[0];
+    }
+
+    function getFirstOfMonth() {
+        const d = new Date();
+        return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-01`;
+    }
+
+    function hashColor(str) {
+        let h = 0;
+        for (let i = 0; i < str.length; i++) h = str.charCodeAt(i) + ((h << 5) - h);
+        return '#' + ((h & 0x00FFFFFF).toString(16).padStart(6, '0'));
+    }
+
+    // ─── Date Navigator (mirrors dashboard) ─────────────────────────────────────
+    function getCurrentDateStr() {
+        const d = new Date();
+        d.setDate(d.getDate() + dateOffset);
+        return d.toISOString().split('T')[0];
+    }
+
+    function updateDayLabel() {
+        const lbl = document.getElementById('day-label');
+        if (viewMode === 'day') {
+            if (dateOffset === 0) lbl.innerText = 'Today';
+            else if (dateOffset === -1) lbl.innerText = 'Yesterday';
+            else lbl.innerText = dateOffset > 0 ? `+${dateOffset} days` : `${dateOffset} days`;
+        } else if (viewMode === 'week') {
+            if (dateOffset === 0) lbl.innerText = 'This Week';
+            else if (dateOffset < 0) lbl.innerText = `${Math.abs(dateOffset)} weeks ago`;
+            else lbl.innerText = `+${dateOffset} weeks`;
+        } else {
+            if (dateOffset === 0) lbl.innerText = 'This Month';
+            else lbl.innerText = dateOffset < 0 ? `${Math.abs(dateOffset)} months ago` : `+${dateOffset} months`;
+        }
+    }
+
+    function changeDay(delta) {
+        if (viewMode === 'day') dateOffset += delta;
+        else if (viewMode === 'week') dateOffset += delta * 7;
+        else dateOffset += delta * 30;
+        updateDayLabel();
+        computeRange();
+        fetchAll();
+    }
+
+    function setViewMode(mode) {
+        viewMode = mode;
+        dateOffset = 0;
+        ['day', 'week', 'month'].forEach(m => {
+            const b = document.getElementById(`toggle-${m}`);
+            if (m === mode) {
+                b.className = 'px-4 py-1.5 text-[10px] font-bold rounded-lg bg-violet-600 text-white shadow-lg shadow-violet-500/20 transition-all';
+            } else {
+                b.className = 'px-4 py-1.5 text-[10px] font-bold rounded-lg text-slate-500 hover:text-slate-300 transition-all';
+            }
+        });
+        updateDayLabel();
+        computeRange();
+        fetchAll();
+    }
+
+    function computeRange() {
+        const refStr = getCurrentDateStr();
+        const ref = new Date(refStr);
+        if (viewMode === 'day') {
+            startDate = refStr;
+            endDate = refStr;
+        } else if (viewMode === 'week') {
+            // Week containing ref date: Mon→Sun
+            const dow = ref.getDay() || 7;
+            const mon = new Date(ref); mon.setDate(ref.getDate() - dow + 1);
+            const sun = new Date(mon); sun.setDate(mon.getDate() + 6);
+            startDate = mon.toISOString().split('T')[0];
+            endDate = sun.toISOString().split('T')[0];
+        } else {
+            // Month
+            startDate = `${ref.getFullYear()}-${String(ref.getMonth() + 1).padStart(2, '0')}-01`;
+            const last = new Date(ref.getFullYear(), ref.getMonth() + 1, 0);
+            endDate = last.toISOString().split('T')[0];
+        }
+        // Update label
+        document.getElementById('card-date-label').textContent = startDate === endDate ? startDate : `${startDate} → ${endDate}`;
+    }
+
+    // ─── Range Selector (kept for backwards compat but now unused in UI) ────────
+    function setRange(r) { /* no-op, replaced by date nav */ }
+    function applyCustomRange() { /* no-op */ }
+
+    // ─── Data Fetch ─────────────────────────────────────────────────────────────
+    async function fetchAll() {
+        const timelineView = viewMode === 'day' ? 'day' : 'week';
+        const dateStr = getCurrentDateStr();
+        const [teamRes, timelineRes] = await Promise.all([
+            fetch(`/api/team/summary?start=${startDate}&end=${endDate}`),
+            fetch(`/api/timeline?date=${dateStr}&view=${timelineView}`)
+        ]);
+        teamData = await teamRes.json();
+        const timelineData = await timelineRes.json();
+        memberNameMap = {};
+        (teamData.members || []).forEach(m => { memberNameMap[m.email] = m.name || m.email.split('@')[0]; });
+        populateFilters();
+        applyFilters();
+        renderTimeline(timelineData);
+    }
+
+    // Keep old name as alias so nothing else breaks
+    function fetchTeamData() { fetchAll(); }
+
+    // ─── Populate filter dropdowns ─────────────────────────────────────────
+    function populateFilters() {
+        const memberSel = document.getElementById('filter-member');
+        const clientSel = document.getElementById('filter-client');
+        const prevMember = memberSel.value;
+        const prevClient = clientSel.value;
+
+        // Members
+        memberSel.innerHTML = '<option value="">All Members</option>';
+        (teamData.members || []).forEach(m => {
+            const name = m.name || m.email.split('@')[0];
+            memberSel.innerHTML += `<option value="${m.email}">${name}</option>`;
+        });
+        if (prevMember) memberSel.value = prevMember;
+
+        // Clients
+        clientSel.innerHTML = '<option value="">All Clients</option>';
+        const clients = [...new Set((teamData.by_client || []).map(c => c.client))];
+        clients.forEach(c => { clientSel.innerHTML += `<option value="${c}">${c}</option>`; });
+        if (prevClient) clientSel.value = prevClient;
+    }
+
+    // ─── Apply filters and re-render ────────────────────────────────────────
+    function applyFilters() {
+        if (!teamData) return;
+        const memberFilter = document.getElementById('filter-member').value;
+        const clientFilter = document.getElementById('filter-client').value;
+
+        // Build a filtered view of teamData
+        let members = teamData.members;
+        let byClient = teamData.by_client;
+        let byCategory = teamData.by_category;
+
+        if (memberFilter) {
+            members = members.filter(m => m.email.toLowerCase() === memberFilter.toLowerCase());
+        }
+        if (clientFilter) {
+            byClient = byClient.filter(c => c.client === clientFilter);
+            // Also filter member breakdown within each client
+            byClient = byClient.map(c => ({
+                ...c,
+                member_breakdown: Object.fromEntries(
+                    Object.entries(c.member_breakdown || {}).filter(([e]) =>
+                        !memberFilter || e.toLowerCase() === memberFilter.toLowerCase()
+                    )
+                )
+            }));
+        }
+        if (memberFilter) {
+            // Filter by_client to only show entries where that member contributed
+            byClient = byClient.filter(c => c.member_breakdown && c.member_breakdown[memberFilter]);
+            byCategory = byCategory.filter(c => c.member_breakdown && c.member_breakdown[memberFilter]);
+        }
+
+        // Recalculate totals from filtered members
+        const filteredTotals = members.reduce((acc, m) => ({
+            total_time: acc.total_time + (m.total_time || 0),
+            billable_time: acc.billable_time + (m.billable_time || 0),
+            non_billable_time: acc.non_billable_time + (m.non_billable_time || 0),
+            focus_time: acc.focus_time + (m.focus_time || 0),
+            meeting_time: acc.meeting_time + (m.meeting_time || 0),
+            focus_pct: 0, meeting_pct: 0  // recalculated in renderAll
+        }), { total_time: 0, billable_time: 0, non_billable_time: 0, focus_time: 0, meeting_time: 0, focus_pct: 0, meeting_pct: 0 });
+        const denom = Math.max(1, filteredTotals.total_time);
+        filteredTotals.focus_pct = Math.round((filteredTotals.focus_time / denom) * 100);
+        filteredTotals.meeting_pct = Math.round((filteredTotals.meeting_time / denom) * 100);
+
+        const filtered = { ...teamData, members, by_client: byClient, by_category: byCategory, totals: filteredTotals };
+        renderAll(filtered);
+    }
+
+    // ─── Timeline Chart ───────────────────────────────────────────────────────────
+    function renderTimeline(timelineData) {
+        const ctx = document.getElementById('teamTimelineChart').getContext('2d');
+        if (teamTimelineChartInst) teamTimelineChartInst.destroy();
+
+        const labels = timelineData.map(d => d.hour);
+        const focusData = timelineData.map(d => d.focus);
+        const commsData = timelineData.map(d => d.comms);
+
+        teamTimelineChartInst = new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels,
+                datasets: [
+                    { label: 'Focus', data: focusData, backgroundColor: '#10B981', stack: 'S', borderRadius: 2 },
+                    { label: 'Comms', data: commsData, backgroundColor: '#A855F7', stack: 'S', borderRadius: 2 }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    x: { stacked: true, grid: { display: false }, ticks: { color: '#94a3b8', font: { size: 10 } } },
+                    y: {
+                        stacked: true, beginAtZero: true,
+                        grid: { color: '#334155', borderDash: [2, 2] },
+                        ticks: {
+                            color: '#64748b', font: { size: 8 }, callback: v => {
+                                if (viewMode === 'day') return v === 3600 ? '1h' : (v === 1800 ? '30m' : '');
+                                return fmtTime(v);
+                            }
+                        }
+                    }
+                },
+                plugins: {
+                    legend: { display: true, position: 'top', align: 'end', labels: { color: '#94a3b8', boxWidth: 8, font: { size: 10 } } },
+                    tooltip: { callbacks: { label: ctx => ctx.dataset.label + ': ' + fmtTime(ctx.raw) } }
+                }
+            }
+        });
+    }
+
+    // Storage for drill-down data (avoids JSON in onclick attributes)
+    let drillStore = [];
+
+    function renderAll(data) {
+        if (!data) data = teamData;
+        if (!data) return;
+        const t = data.totals;
+
+        // Row 1 card
+        document.getElementById('card-total').textContent = fmtTime(t.total_time);
+        document.getElementById('card-billable').textContent = fmtTime(t.billable_time);
+        document.getElementById('card-nonbillable').textContent = fmtTime(t.non_billable_time);
+        document.getElementById('card-members').textContent = data.members.length;
+        const bpct = t.total_time > 0 ? Math.round((t.billable_time / t.total_time) * 100) : 0;
+        document.getElementById('card-billable-pct').textContent = `(${bpct}%)`;
+        document.getElementById('billable-bar').style.width = `${bpct}%`;
+
+        // Row 2 Scores rings
+        const focusPct = t.focus_pct || 0;
+        const meetPct = t.meeting_pct || 0;
+        const otherPct = Math.max(0, 100 - focusPct - meetPct);
+        document.getElementById('team-score-focus').textContent = `${focusPct}%`;
+        document.getElementById('team-score-meeting').textContent = `${meetPct}%`;
+        document.getElementById('team-score-break').textContent = `${otherPct}%`;
+        document.getElementById('team-focus-time').textContent = fmtTime(t.focus_time || 0);
+        document.getElementById('team-meeting-time').textContent = fmtTime(t.meeting_time || 0);
+        document.getElementById('team-break-time').textContent = fmtTime(Math.max(0, (t.total_time || 0) - (t.focus_time || 0) - (t.meeting_time || 0)));
+        document.getElementById('team-ring-focus').style.background = `conic-gradient(#10B981 ${focusPct * 3.6}deg, #1e293b 0)`;
+        document.getElementById('team-ring-meeting').style.background = `conic-gradient(#A855F7 ${meetPct * 3.6}deg, #1e293b 0)`;
+        document.getElementById('team-ring-break').style.background = `conic-gradient(#3B82F6 ${otherPct * 3.6}deg, #1e293b 0)`;
+
+        renderMembers(data);
+        renderClients(data);
+        renderCategories(data);
+    }
+
+    // ─── Members List (dashboard list style with billable split bar) ──────────────
+    function renderMembers(data) {
+        if (!data) data = teamData;
+        const container = document.getElementById('members-list');
+        const total = data.totals.total_time || 1;
+        if (!data.members || !data.members.length) {
+            container.innerHTML = '<div class="text-center text-slate-500 text-xs py-10">No team members found.<br>Add team members in Admin → Users.</div>';
+            return;
+        }
+        container.innerHTML = data.members.map((m, i) => {
+            const pct = total > 0 ? Math.round((m.total_time / total) * 100) : 0;
+            const billPct = m.total_time > 0 ? Math.round((m.billable_time / m.total_time) * 100) : 0;
+            const nonBillPct = 100 - billPct;
+            const displayName = m.name || m.email.split('@')[0];
+            const timeLabel = fmtTime(m.total_time);
+            return `
+        <div class="flex items-center gap-3 text-xs p-2 cursor-pointer hover:bg-slate-700/50 active:bg-slate-700 rounded-xl transition-all group/item"
+             onclick="openMemberDetail('${m.email.replace(/'/g, "\\'")}',' ${displayName.replace(/'/g, "\\'")}')"
+             title="${displayName}">
+            <div class="w-8 text-right text-slate-400 font-medium group-hover/item:text-violet-400 transition-colors shrink-0">${pct}%</div>
+            <div class="w-28 font-bold text-slate-200 truncate shrink-0">${displayName}</div>
+            <div class="flex-1 bg-slate-700/50 rounded-full h-1.5 overflow-hidden">
+                <div class="h-full flex rounded-full overflow-hidden">
+                    <div class="bg-emerald-500 h-full" style="width:${billPct}%"></div>
+                    <div class="bg-slate-600 h-full" style="width:${nonBillPct}%"></div>
+                </div>
+            </div>
+            <div class="w-20 text-right text-slate-300 whitespace-nowrap font-semibold shrink-0">${timeLabel}</div>
+        </div>`;
+        }).join('');
+    }
+
+    // ─── Client Breakdown (dashboard list style, plain colored bar) ───────────────
+    function renderClients(data) {
+        if (!data) data = teamData;
+        const container = document.getElementById('team-client-bar-list');
+        const total = data.totals.total_time || 1;
+        if (!data.by_client || !data.by_client.length) {
+            container.innerHTML = '<div class="text-center text-slate-500 text-xs py-10">No client data in this range.</div>';
+            return;
+        }
+        // Store for safe onclick lookup
+        drillStore = data.by_client.map(c => ({ type: 'client', data: c }));
+        container.innerHTML = data.by_client.map((c, i) => {
+            const pct = total > 0 ? Math.round((c.total_time / total) * 100) : 0;
+            const color = hashColor(c.client);
+            const timeLabel = fmtTime(c.total_time);
+            return `
+        <div class="flex items-center gap-3 text-xs p-2 cursor-pointer hover:bg-slate-700/50 active:bg-slate-700 rounded-xl transition-all group/item"
+             onclick="openDrillByIndex(${i})"
+             title="${c.client} — click for member split">
+            <div class="w-8 text-right text-slate-400 font-medium group-hover/item:text-indigo-400 transition-colors shrink-0">${pct}%</div>
+            <div class="w-24 font-bold text-slate-200 truncate shrink-0">${c.client}</div>
+            <div class="flex-1 bg-slate-700/50 rounded-full h-1.5 overflow-hidden">
+                <div class="h-full rounded-full" style="width:${pct}%;background:${color}"></div>
+            </div>
+            <div class="w-20 text-right text-slate-300 whitespace-nowrap font-semibold shrink-0">${timeLabel}</div>
+        </div>`;
+        }).join('');
+    }
+
+    // ─── Category Breakdown (dashboard list style) ────────────────────────────────
+    function renderCategories(data) {
+        if (!data) data = teamData;
+        const container = document.getElementById('team-category-list');
+        const total = data.totals.total_time || 1;
+        if (!data.by_category || !data.by_category.length) {
+            container.innerHTML = '<div class="text-center text-slate-500 text-xs py-10">No category data in this range.</div>';
+            return;
+        }
+        // Store categories at offset after clients for safe onclick
+        const catOffset = data.by_client ? data.by_client.length : 0;
+        data.by_category.forEach((c, i) => {
+            drillStore[catOffset + i] = { type: 'category', data: c };
+        });
+        container.innerHTML = data.by_category.map((c, i) => {
+            const pct = total > 0 ? Math.round((c.total_time / total) * 100) : 0;
+            const timeLabel = fmtTime(c.total_time);
+            return `
+        <div class="flex items-center gap-3 text-xs p-2 cursor-pointer hover:bg-slate-700/50 active:bg-slate-700 rounded-xl transition-all group/item"
+             onclick="openDrillByIndex(${catOffset + i})"
+             title="${c.category} — click for member split">
+            <div class="w-8 text-right text-slate-400 font-medium group-hover/item:text-indigo-400 transition-colors shrink-0">${pct}%</div>
+            <div class="flex items-center gap-1.5 w-24 shrink-0">
+                <div class="w-2 h-2 rounded-full shrink-0" style="background:${c.color}"></div>
+                <div class="font-bold text-slate-200 truncate">${c.category}</div>
+            </div>
+            <div class="flex-1 bg-slate-700/50 rounded-full h-1.5 overflow-hidden">
+                <div class="h-full rounded-full" style="width:${pct}%;background:${c.color}"></div>
+            </div>
+            <div class="w-20 text-right text-slate-300 whitespace-nowrap font-semibold shrink-0">${timeLabel}</div>
+        </div>`;
+        }).join('');
+    }
+
+    // Safe drill-down opener using stored index instead of inline JSON
+    function openDrillByIndex(idx) {
+        const entry = drillStore[idx];
+        if (!entry) return;
+        openDrill(entry.type, entry.data);
+    }
+
+    // ─── Level 2: Drill Panel ────────────────────────────────────────────────────
+    function openDrill(type, data) {
+        const panel = document.getElementById('drill-panel');
+        document.getElementById('drill-breadcrumb').textContent = type === 'client' ? 'Client → Member Split' : 'Category → Member Split';
+        document.getElementById('drill-title').textContent = data.client || data.category;
+
+        const members = data.member_breakdown || {};
+        const totalSec = data.total_time || 1;
+        const entries = Object.entries(members).sort((a, b) => b[1] - a[1]);
+
+        if (!entries.length) {
+            document.getElementById('drill-content').innerHTML = '<div class="text-center text-slate-500 py-20">No data available.</div>';
+        } else {
+            document.getElementById('drill-content').innerHTML = `
+            <div class="text-xs text-slate-500 mb-3">${entries.length} team member${entries.length !== 1 ? 's' : ''} · ${fmtTime(totalSec)} total</div>
+            ${entries.map(([email, secs]) => {
+                const name = memberNameMap[email] || email.split('@')[0];
+                const pct = Math.round((secs / totalSec) * 100);
+                return `
+                <div class="flex items-center gap-3 p-3 bg-slate-800/50 rounded-xl cursor-pointer hover:bg-slate-700/50 border border-slate-700/30 hover:border-violet-500/30 transition-all"
+                     onclick="closeDrill(); openMemberDetail('${email}', '${name}')">
+                    <div class="w-8 h-8 rounded-full bg-violet-600/20 border border-violet-500/30 flex items-center justify-center shrink-0 text-sm font-bold text-violet-300">
+                        ${name[0].toUpperCase()}
+                    </div>
+                    <div class="flex-1">
+                        <div class="font-semibold text-white text-sm">${name}</div>
+                        <div class="text-[10px] text-slate-500">${email}</div>
+                        <div class="flex items-center gap-2 mt-1.5">
+                            <div class="flex-1 bg-slate-700 rounded-full h-1.5">
+                                <div class="bg-violet-500 h-1.5 rounded-full" style="width:${pct}%"></div>
+                            </div>
+                            <span class="text-[10px] text-slate-400">${pct}%</span>
+                        </div>
+                    </div>
+                    <div class="text-right">
+                        <div class="font-bold text-white">${fmtTime(secs)}</div>
+                        <div class="text-[10px] text-violet-400 mt-0.5">View →</div>
+                    </div>
+                </div>`;
+            }).join('')}`;
+        }
+
+        panel.classList.remove('hidden');
+    }
+
+    function closeDrill() {
+        document.getElementById('drill-panel').classList.add('hidden');
+    }
+
+    // ─── Level 3: Member Detail Modal ────────────────────────────────────────────
+    async function openMemberDetail(email, name) {
+        const modal = document.getElementById('member-modal');
+        document.getElementById('modal-member-name').textContent = name;
+        document.getElementById('modal-breadcrumb').textContent = `Team › ${name}`;
+        document.getElementById('modal-date-label').textContent = `${startDate} → ${endDate}`;
+        document.getElementById('modal-body').innerHTML = '<div class="col-span-3 text-center text-slate-500 py-20">Loading...</div>';
+        modal.classList.remove('hidden');
+
+        const res = await fetch(`/api/team/member/${encodeURIComponent(email)}?start=${startDate}&end=${endDate}`);
+        const data = await res.json();
+
+        const totalTime = data.total_time || 1;
+
+        document.getElementById('modal-body').innerHTML = `
+        <!-- Total + By Client -->
+        <div class="space-y-3">
+            <div class="bg-slate-900/50 rounded-xl p-4 border border-slate-700/50">
+                <div class="text-[10px] text-slate-500 uppercase font-semibold mb-1">Total Time</div>
+                <div class="text-3xl font-bold text-white">${fmtTime(data.total_time)}</div>
+            </div>
+            <div class="bg-slate-900/50 rounded-xl p-4 border border-slate-700/50">
+                <div class="text-[10px] text-slate-500 uppercase font-semibold mb-3">By Client</div>
+                <div class="space-y-2">
+                    ${(data.by_client || []).slice(0, 8).map(c => {
+            const pct = Math.round((c.time / totalTime) * 100);
+            const color = hashColor(c.client);
+            return `<div class="flex items-center gap-2 text-xs">
+                            <div class="w-1.5 h-1.5 rounded-full shrink-0" style="background:${color}"></div>
+                            <div class="flex-1 truncate text-slate-300">${c.client}</div>
+                            <div class="flex-1 bg-slate-700 rounded-full h-1">
+                                <div class="h-1 rounded-full" style="width:${pct}%;background:${color}"></div>
+                            </div>
+                            <div class="w-14 text-right text-slate-400">${fmtTime(c.time)}</div>
+                        </div>`;
+        }).join('')}
+                </div>
+            </div>
+        </div>
+
+        <!-- By Category -->
+        <div class="bg-slate-900/50 rounded-xl p-4 border border-slate-700/50">
+            <div class="text-[10px] text-slate-500 uppercase font-semibold mb-3">By Category</div>
+            <div class="space-y-2">
+                ${(data.by_category || []).map(c => {
+            const pct = Math.round((c.time / totalTime) * 100);
+            return `<div class="flex items-center gap-2 text-xs">
+                        <div class="w-1.5 h-1.5 rounded-full shrink-0" style="background:${c.color}"></div>
+                        <div class="flex-1 truncate text-slate-300">${c.category}</div>
+                        <div class="flex-1 bg-slate-700 rounded-full h-1">
+                            <div class="h-1 rounded-full" style="width:${pct}%;background:${c.color}"></div>
+                        </div>
+                        <div class="w-14 text-right text-slate-400">${fmtTime(c.time)}</div>
+                        ${c.is_billable ? '<span class="text-[8px] text-emerald-400 w-12 text-right">BILL.</span>' : '<span class="text-[8px] text-slate-600 w-12 text-right">N/B</span>'}
+                    </div>`;
+        }).join('')}
+            </div>
+            <div class="mt-4 border-t border-slate-700/50 pt-3">
+                <div class="text-[10px] text-slate-500 uppercase font-semibold mb-2">Top Apps</div>
+                ${(data.by_app || []).slice(0, 5).map(a => {
+            const pct = Math.round((a.time / totalTime) * 100);
+            return `<div class="flex items-center gap-2 text-xs mb-1.5">
+                        <div class="flex-1 truncate text-slate-300">${a.app}</div>
+                        <div class="w-20 bg-slate-700 rounded-full h-1">
+                            <div class="bg-indigo-500 h-1 rounded-full" style="width:${pct}%"></div>
+                        </div>
+                        <div class="w-14 text-right text-slate-400">${fmtTime(a.time)}</div>
+                    </div>`;
+        }).join('')}
+            </div>
+        </div>
+
+        <!-- Recent Activity Log -->
+        <div class="bg-slate-900/50 rounded-xl p-4 border border-slate-700/50 overflow-hidden">
+            <div class="text-[10px] text-slate-500 uppercase font-semibold mb-3">Recent Activity</div>
+            <div class="space-y-1 overflow-y-auto max-h-80">
+                ${(data.recent_activities || []).map(a => `
+                    <div class="flex items-start gap-2 text-[10px] py-1.5 border-b border-slate-700/30">
+                        <span class="text-slate-600 shrink-0 w-10">${(a.timestamp || '').split(' ')[1]?.substring(0, 5) || ''}</span>
+                        <div class="flex-1 min-w-0">
+                            <div class="font-semibold text-slate-300 truncate">${a.app} — ${a.title || ''}</div>
+                            <div class="flex gap-2 mt-0.5">
+                                <span class="text-indigo-400">${a.client || 'Unassigned'}</span>
+                                <span class="text-slate-600">·</span>
+                                <span class="text-slate-500">${a.category || 'Uncategorized'}</span>
+                            </div>
+                        </div>
+                        <span class="text-slate-400 shrink-0">${fmtTime(a.duration)}</span>
+                    </div>
+                `).join('')}
+            </div>
+        </div>
+    `;
+    }
+
+    function closeMemberModal() {
+        document.getElementById('member-modal').classList.add('hidden');
+    }
+
+    // Close modal on backdrop click
+    document.getElementById('member-modal').addEventListener('click', function (e) {
+        if (e.target === this) closeMemberModal();
+    });
+
+    // ─── Init ─────────────────────────────────────────────────────────────────────
+    computeRange();
+    updateDayLabel();
+    fetchAll();
+</script>
+{% endblock %}

@@ -1,0 +1,412 @@
+{% extends "application.html" %}
+
+{% block header_left %}
+<h2 class="text-xl font-bold text-white tracking-tight">Activity Logs</h2>
+{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+
+    <!-- Filters Header -->
+    <div class="space-y-4">
+        <div
+            class="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 bg-slate-800/50 p-4 rounded-2xl border border-slate-700/50 backdrop-blur-sm">
+            <div class="flex flex-wrap items-center gap-4 w-full lg:w-auto">
+                <h2 class="text-lg font-bold text-white tracking-tight mr-2">Activity Logs</h2>
+
+                <!-- Date Picker -->
+                <div class="flex items-center gap-2 bg-slate-900/50 rounded-xl p-1 border border-slate-700/50">
+                    <input type="date" id="date-picker"
+                        class="bg-transparent border-none text-xs text-slate-300 focus:ring-0 cursor-pointer px-3 py-1.5"
+                        onchange="fetchActivities()">
+                </div>
+
+                <!-- App/Window Search -->
+                <div
+                    class="flex-1 lg:w-64 bg-slate-900/50 rounded-xl px-3 py-1.5 border border-slate-700/50 flex items-center gap-2">
+                    <svg class="w-4 h-4 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                    </svg>
+                    <input type="text" id="search-filter" placeholder="Search App or Window..."
+                        class="bg-transparent border-none text-xs text-slate-300 focus:ring-0 w-full p-0"
+                        oninput="debounceFetch()">
+                </div>
+
+                <!-- Client Filter -->
+                <div class="bg-slate-900/50 rounded-xl px-2 py-1 border border-slate-700/50">
+                    <select id="client-filter" onchange="fetchActivities()"
+                        class="bg-transparent border-none text-xs text-slate-400 focus:ring-0 cursor-pointer pr-8">
+                        <option value="">All Clients</option>
+                        <option value="Unassigned">Unassigned</option>
+                    </select>
+                </div>
+
+                <!-- Category Filter -->
+                <div class="bg-slate-900/50 rounded-xl px-2 py-1 border border-slate-700/50">
+                    <select id="category-filter" onchange="fetchActivities()"
+                        class="bg-transparent border-none text-xs text-slate-400 focus:ring-0 cursor-pointer pr-8">
+                        <option value="">All Categories</option>
+                        <option value="0">Uncategorized</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="flex items-center gap-6">
+                <label class="flex items-center gap-2 cursor-pointer group">
+                    <div class="relative">
+                        <input type="checkbox" id="summarize-toggle" class="sr-only peer" checked
+                            onchange="fetchActivities()">
+                        <div
+                            class="w-10 h-5 bg-slate-700 rounded-full peer peer-checked:bg-indigo-600 transition-colors">
+                        </div>
+                        <div
+                            class="absolute left-1 top-1 w-3 h-3 bg-white rounded-full transition-transform peer-checked:translate-x-5">
+                        </div>
+                    </div>
+                    <span
+                        class="text-[10px] font-bold text-slate-400 uppercase tracking-widest group-hover:text-slate-300">Summarize</span>
+                </label>
+            </div>
+        </div>
+
+        <!-- Bulk Action Bar (Hidden by default) -->
+        <div id="bulk-action-bar"
+            class="hidden flex flex-col md:flex-row items-center justify-between gap-4 bg-indigo-600/90 backdrop-blur-md p-4 rounded-2xl border border-indigo-400/30 shadow-2xl shadow-indigo-900/40 animate-in fade-in slide-in-from-top-4 duration-300">
+            <div class="flex items-center gap-4">
+                <div class="flex items-center justify-center w-8 h-8 bg-white/20 rounded-full text-white font-bold text-xs"
+                    id="selected-count">0</div>
+                <span class="text-sm font-bold text-white">logs selected</span>
+            </div>
+
+            <div class="flex flex-wrap items-center gap-3">
+                <select id="bulk-client-select"
+                    class="bg-indigo-700/50 border-indigo-400/30 rounded-xl text-xs text-white focus:ring-0 px-3 py-2">
+                    <option value="">Set Client...</option>
+                    <option value="Unassigned">Unassigned</option>
+                </select>
+                <select id="bulk-category-select"
+                    class="bg-indigo-700/50 border-indigo-400/30 rounded-xl text-xs text-white focus:ring-0 px-3 py-2">
+                    <option value="">Set Category...</option>
+                    <option value="0">Uncategorized</option>
+                </select>
+                <button onclick="applyBulkUpdate()"
+                    class="bg-white text-indigo-700 font-bold px-6 py-2 rounded-xl text-xs hover:bg-slate-100 transition-all shadow-lg active:scale-95">
+                    Update Logs
+                </button>
+                <button onclick="clearSelection()"
+                    class="text-indigo-200 hover:text-white text-[10px] font-bold uppercase tracking-widest px-2">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Activity Log Table -->
+    <div class="bg-slate-800/50 rounded-2xl border border-slate-700/50 backdrop-blur-sm overflow-hidden">
+        <div class="overflow-x-auto">
+            <table class="w-full text-left text-sm text-slate-300">
+                <thead class="bg-slate-800/30 text-[10px] uppercase font-bold text-slate-500 tracking-wider">
+                    <tr>
+                        <th class="px-6 py-4 w-10">
+                            <input type="checkbox" id="select-all" onclick="toggleSelectAll()"
+                                class="rounded border-slate-700 bg-slate-900 text-indigo-600 focus:ring-0 focus:ring-offset-0">
+                        </th>
+                        <th class="px-6 py-4">Time</th>
+                        <th class="px-6 py-4">App & Window</th>
+                        <th class="px-6 py-4">Client</th>
+                        <th class="px-6 py-4">Category</th>
+                        <th class="px-6 py-4 text-right">Duration</th>
+                        <th class="px-6 py-4 text-center">Actions</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-700/30" id="activity-table-body">
+                    <tr>
+                        <td colspan="7" class="px-6 py-10 text-center text-slate-500 italic">Loading activities...</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- Edit Modal -->
+<div id="edit-modal"
+    class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+    <div class="bg-slate-900 border border-slate-700 rounded-3xl w-full max-w-md shadow-2xl overflow-hidden">
+        <div class="p-6 border-b border-slate-800 flex justify-between items-center">
+            <h3 class="text-lg font-bold text-white">Update Activity</h3>
+            <button onclick="closeModal()" class="text-slate-500 hover:text-white transition-colors">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+            </button>
+        </div>
+        <div class="p-6 space-y-6">
+            <div>
+                <label class="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-2">Client</label>
+                <select id="modal-client"
+                    class="w-full bg-slate-800 border-slate-700 rounded-xl text-slate-200 text-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500">
+                    <option value="">Unassigned</option>
+                </select>
+            </div>
+            <div>
+                <label class="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-2">Category</label>
+                <select id="modal-category"
+                    class="w-full bg-slate-800 border-slate-700 rounded-xl text-slate-200 text-sm focus:border-pink-500 focus:ring-1 focus:ring-pink-500">
+                    <option value="">Uncategorized</option>
+                </select>
+            </div>
+        </div>
+        <div class="p-6 bg-slate-800/30 flex gap-3">
+            <button onclick="saveChanges()"
+                class="flex-1 bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-3 rounded-xl transition-all shadow-lg shadow-indigo-600/20">
+                Save Changes
+            </button>
+        </div>
+    </div>
+</div>
+
+<script>
+    let currentEditIds = [];
+    let selectedIds = new Set();
+    let categories = [];
+    let clients = [];
+    let debounceTimer;
+
+    // Set default date to today
+    document.getElementById('date-picker').valueAsDate = new Date();
+
+    async function init() {
+        await fetchMetadata();
+        await fetchActivities();
+    }
+
+    function debounceFetch() {
+        clearTimeout(debounceTimer);
+        debounceTimer = setTimeout(fetchActivities, 300);
+    }
+
+    async function fetchMetadata() {
+        const [catRes, clientRes] = await Promise.all([
+            fetch('/api/categories'),
+            fetch('/api/clients')
+        ]);
+        categories = await catRes.json();
+        clients = await clientRes.json();
+
+        // Populate selects
+        const populateSelect = (id, list, defaultText) => {
+            const select = document.getElementById(id);
+            if (!select) return;
+            let options = `<option value="">${defaultText}</option>`;
+            if (id.includes('client')) options += '<option value="Unassigned">Unassigned</option>';
+            if (id.includes('category')) options += '<option value="0">Uncategorized</option>';
+
+            options += list.map(item => `<option value="${item.id}">${item.name}</option>`).join('');
+            select.innerHTML = options;
+        };
+
+        populateSelect('modal-category', categories, 'Select Category...');
+        populateSelect('modal-client', clients, 'Select Client...');
+        populateSelect('category-filter', categories, 'All Categories');
+        populateSelect('client-filter', clients, 'All Clients');
+        populateSelect('bulk-category-select', categories, 'Set Category...');
+        populateSelect('bulk-client-select', clients, 'Set Client...');
+    }
+
+    async function fetchActivities() {
+        const date = document.getElementById('date-picker').value;
+        const summarized = document.getElementById('summarize-toggle').checked;
+        const search = document.getElementById('search-filter').value;
+        const client = document.getElementById('client-filter').value;
+        const category = document.getElementById('category-filter').value;
+
+        const tbody = document.getElementById('activity-table-body');
+        clearSelection();
+
+        try {
+            let url = `/api/activities?date=${date}&summarized=${summarized}`;
+            if (search) url += `&app=${encodeURIComponent(search)}&title=${encodeURIComponent(search)}`;
+            if (client) url += `&client=${encodeURIComponent(client)}`;
+            if (category) url += `&category=${encodeURIComponent(category)}`;
+
+            const response = await fetch(url);
+            const data = await response.json();
+
+            tbody.innerHTML = '';
+            if (data.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="7" class="px-6 py-10 text-center text-slate-500 italic">No activities found matching filters.</td></tr>';
+                return;
+            }
+
+            data.forEach(act => {
+                const actIds = act.ids || [act.id];
+                const cat = categories.find(c => c.id === act.category_id);
+                const color = cat ? cat.color : '#64748b';
+                const timeStr = act.last_timestamp ? act.last_timestamp.split(' ')[1].substring(0, 8) : (act.timestamp ? act.timestamp.split(' ')[1].substring(0, 8) : '--:--:--');
+                const duration = act.total_duration || act.duration;
+
+                const row = document.createElement('tr');
+                row.className = "hover:bg-slate-800/30 transition-colors group cursor-pointer";
+                row.onclick = (e) => {
+                    if (e.target.tagName !== 'INPUT' && e.target.tagName !== 'BUTTON' && !e.target.closest('button')) {
+                        toggleRowSelection(actIds, row);
+                    }
+                };
+
+                row.innerHTML = `
+                    <td class="px-6 py-4">
+                        <input type="checkbox" class="row-checkbox rounded border-slate-700 bg-slate-900 text-indigo-600 focus:ring-0 focus:ring-offset-0" 
+                            onchange="updateSelection()" data-ids='${JSON.stringify(actIds)}'>
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap text-slate-400 text-xs font-mono">${timeStr}</td>
+                    <td class="px-6 py-4 max-w-sm">
+                        <div class="text-white font-medium truncate text-sm" title="${act.app_name}">${act.app_name}</div>
+                        <div class="text-slate-500 text-[10px] truncate leading-tight mt-0.5" title="${act.window_title}">${act.window_title}</div>
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap">
+                        <span class="px-2 py-1 rounded-lg text-[10px] font-bold uppercase tracking-wider bg-slate-700/30 text-slate-400 border border-slate-700/50">
+                            ${act.client || 'Unassigned'}
+                        </span>
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap">
+                        <span class="px-2 py-1 rounded-lg text-[10px] font-bold uppercase tracking-wider text-white" style="background-color: ${color}20; color: ${color}; border: 1px solid ${color}40">
+                            ${cat ? cat.name : 'Uncategorized'}
+                        </span>
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap text-right text-slate-300 text-xs font-medium">${formatDuration(duration)}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-center">
+                        <button onclick='openEditModal(${JSON.stringify(actIds)}, ${act.category_id}, "${act.client || ""}")' 
+                                class="p-2 rounded-lg bg-slate-700/50 text-slate-400 hover:bg-indigo-600 hover:text-white transition-all opacity-0 group-hover:opacity-100">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"/></svg>
+                        </button>
+                    </td>
+                `;
+                tbody.appendChild(row);
+            });
+
+        } catch (error) {
+            console.error("Error fetching activities:", error);
+            tbody.innerHTML = '<tr><td colspan="7" class="px-6 py-10 text-center text-red-400 italic">Error loading activities.</td></tr>';
+        }
+    }
+
+    function toggleRowSelection(ids, row) {
+        const cb = row.querySelector('.row-checkbox');
+        cb.checked = !cb.checked;
+        updateSelection();
+    }
+
+    function toggleSelectAll() {
+        const master = document.getElementById('select-all');
+        document.querySelectorAll('.row-checkbox').forEach(cb => {
+            cb.checked = master.checked;
+        });
+        updateSelection();
+    }
+
+    function updateSelection() {
+        selectedIds.clear();
+        document.querySelectorAll('.row-checkbox:checked').forEach(cb => {
+            const ids = JSON.parse(cb.getAttribute('data-ids'));
+            ids.forEach(id => selectedIds.add(id));
+        });
+
+        const bar = document.getElementById('bulk-action-bar');
+        const count = document.getElementById('selected-count');
+
+        if (selectedIds.size > 0) {
+            bar.classList.remove('hidden');
+            count.innerText = selectedIds.size;
+        } else {
+            bar.classList.add('hidden');
+        }
+    }
+
+    function clearSelection() {
+        selectedIds.clear();
+        const master = document.getElementById('select-all');
+        if (master) master.checked = false;
+        document.querySelectorAll('.row-checkbox').forEach(cb => cb.checked = false);
+        document.getElementById('bulk-action-bar')?.classList.add('hidden');
+    }
+
+    async function applyBulkUpdate() {
+        const clientId = document.getElementById('bulk-client-select').value;
+        const categoryId = document.getElementById('bulk-category-select').value;
+
+        if (!clientId && !categoryId) {
+            alert("Please select a client or category to update.");
+            return;
+        }
+
+        try {
+            const response = await fetch('/api/activities/bulk_update', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    activity_ids: Array.from(selectedIds),
+                    client_id: clientId === "" ? null : (clientId === "Unassigned" ? "" : clientId),
+                    category_id: categoryId === "" ? null : (categoryId === "0" ? "" : categoryId)
+                })
+            });
+
+            const result = await response.json();
+            if (result.status === 'success') {
+                fetchActivities();
+            } else {
+                alert("Error: " + result.error);
+            }
+        } catch (e) {
+            console.error(e);
+            alert("Failed to update logs.");
+        }
+    }
+
+    function formatDuration(seconds) {
+        if (seconds < 60) return seconds.toFixed(0) + 's';
+        const h = Math.floor(seconds / 3600);
+        const m = Math.floor((seconds % 3600) / 60);
+        const s = Math.floor(seconds % 60);
+        if (h > 0) return `${h}h ${m}m`;
+        return `${m}m ${s}s`;
+    }
+
+    function openEditModal(ids, categoryId, clientName) {
+        currentEditIds = ids;
+        document.getElementById('modal-category').value = categoryId || "";
+        const client = clients.find(c => c.name === clientName);
+        document.getElementById('modal-client').value = client ? client.id : "";
+        document.getElementById('edit-modal').classList.remove('hidden');
+    }
+
+    function closeModal() {
+        document.getElementById('edit-modal').classList.add('hidden');
+    }
+
+    async function saveChanges() {
+        const categoryId = document.getElementById('modal-category').value;
+        const clientId = document.getElementById('modal-client').value;
+
+        try {
+            const response = await fetch('/api/activities/bulk_update', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    activity_ids: currentEditIds,
+                    client_id: clientId === "" ? "" : clientId,
+                    category_id: categoryId === "" ? "" : categoryId
+                })
+            });
+
+            await response.json();
+            closeModal();
+            fetchActivities();
+        } catch (error) {
+            console.error("Error saving changes:", error);
+            alert("Error saving changes");
+        }
+    }
+
+    init();
+</script>
+{% endblock %}

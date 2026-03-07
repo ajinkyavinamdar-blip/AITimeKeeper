@@ -1,0 +1,927 @@
+{% extends "application.html" %}
+
+{% block header_left %}
+<div>
+    <h1 class="text-xl font-bold text-white tracking-tight">Today's Overview</h1>
+    <div class="flex items-center gap-2 mt-1">
+        <div class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></div>
+        <span class="text-[10px] font-bold text-emerald-400 uppercase tracking-wider">Live Tracking</span>
+    </div>
+</div>
+{% endblock %}
+
+{% block content %}
+<div class="space-y-3 pb-4">
+    <!-- Header with Date and Navigation -->
+    <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-2">
+        <div>
+            <h1 class="text-2xl font-bold text-white tracking-tight" id="dashboard-date">--</h1>
+            <p class="text-slate-500 text-xs mt-1">Productivity Insights & Activity Distribution</p>
+        </div>
+        <div class="flex items-center gap-4 bg-slate-800/50 p-1.5 rounded-2xl border border-slate-700/50 shadow-sm">
+            <div class="flex items-center gap-1 px-2">
+                <button onclick="changeDay(-1)"
+                    class="p-1.5 hover:bg-slate-700/50 rounded-lg transition-colors text-slate-400">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M15 19l-7-7 7-7">
+                        </path>
+                    </svg>
+                </button>
+                <div id="day-label" class="px-3 text-[10px] font-bold text-slate-300 uppercase tracking-widest">Today
+                </div>
+                <button onclick="changeDay(1)"
+                    class="p-1.5 hover:bg-slate-700/50 rounded-lg transition-colors text-slate-400">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M9 5l7 7-7 7"></path>
+                    </svg>
+                </button>
+            </div>
+            <div class="w-px h-6 bg-slate-700/50"></div>
+            <div class="flex bg-slate-900/50 rounded-xl p-1">
+                <button id="toggle-day" onclick="setMode('day')"
+                    class="px-4 py-1.5 text-[10px] font-bold rounded-lg bg-indigo-600 text-white shadow-lg shadow-indigo-500/20 transition-all">Day</button>
+                <button id="toggle-week" onclick="setMode('week')"
+                    class="px-4 py-1.5 text-[10px] font-bold rounded-lg text-slate-500 hover:text-slate-300 transition-all">Week</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Row 1: Work Hours & Timeline -->
+    <div class="grid grid-cols-1 lg:grid-cols-4 gap-5">
+        <!-- Work Hours Card -->
+        <div
+            class="col-span-1 bg-slate-800/50 rounded-2xl p-6 border border-slate-700/50 backdrop-blur-sm flex flex-col justify-between">
+            <div>
+                <h3 class="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">Total Time Worked</h3>
+                <div class="text-3xl font-bold text-white mb-1" id="total-time-display">--:--</div>
+
+                <div class="flex items-center gap-2 mt-2">
+                    <div class="text-xs text-slate-500">
+                        Daily Goal: <span class="text-slate-300">9h</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="mt-6 space-y-3">
+                <!-- Progress Bar -->
+                <div class="w-full bg-slate-700 rounded-full h-2">
+                    <div class="bg-indigo-500 h-2 rounded-full" id="work-progress-bar" style="width: 0%"></div>
+                </div>
+                <div class="flex justify-between text-xs text-slate-400">
+                    <span id="progress-percent">0%</span>
+                    <span id="overtime-display" class="hidden text-amber-500 font-bold">Overtime!</span>
+                </div>
+
+                <div class="flex gap-2">
+                    <button id="tracking-toggle-btn" onclick="toggleTracking()"
+                        class="w-full bg-red-600 hover:bg-red-500 text-white text-xs font-bold py-2 px-4 rounded transition-colors">
+                        Disable Tracking
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Timeline (Hourly Stacked Bar) -->
+        <div
+            class="col-span-1 lg:col-span-3 bg-slate-800/50 rounded-2xl p-6 border border-slate-700/50 backdrop-blur-sm flex flex-col">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-xs font-semibold text-slate-400 uppercase tracking-wider">Timeline</h3>
+                <div class="text-xs text-slate-500">Hourly Focus & Comms</div>
+            </div>
+            <div class="flex-1 w-full h-40">
+                <canvas id="timelineChart"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <!-- Row 2: Clients, Scores, Break Timer -->
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-5">
+
+        <!-- Clients Card (Now List Style) -->
+        <div class="bg-slate-800/50 rounded-2xl p-6 border border-slate-700/50 backdrop-blur-sm flex flex-col">
+            <h3 class="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-4">Clients</h3>
+            <div class="flex-1 overflow-y-auto max-h-48 pr-2 space-y-4" id="client-breakdown-list">
+                <div class="text-center text-slate-500 text-xs py-10">Loading clients...</div>
+            </div>
+        </div>
+
+        <!-- Scores -->
+        <div
+            class="bg-slate-800/50 rounded-2xl p-6 border border-slate-700/50 backdrop-blur-sm flex flex-col justify-between">
+            <h3 class="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-4">Scores</h3>
+            <div class="flex justify-between items-center px-2">
+                <!-- Focus -->
+                <div class="flex flex-col items-center gap-2">
+                    <div class="relative w-24 h-24 flex items-center justify-center rounded-full" id="ring-focus"
+                        style="background: conic-gradient(#10B981 0%, #1e293b 0);">
+                        <div class="absolute inset-1 bg-slate-800 rounded-full flex items-center justify-center">
+                            <span class="text-lg font-bold text-white" id="score-focus-val">--</span>
+                        </div>
+                    </div>
+                    <div class="text-center">
+                        <div class="text-xs font-bold text-slate-300">Focus</div>
+                        <div class="text-[10px] text-slate-500" id="score-focus-time">--</div>
+                    </div>
+                </div>
+
+                <!-- Meetings -->
+                <div class="flex flex-col items-center gap-2">
+                    <div class="relative w-24 h-24 flex items-center justify-center rounded-full" id="ring-meeting"
+                        style="background: conic-gradient(#A855F7 0%, #1e293b 0);">
+                        <div class="absolute inset-1 bg-slate-800 rounded-full flex items-center justify-center">
+                            <span class="text-lg font-bold text-white" id="score-meeting-val">--</span>
+                        </div>
+                    </div>
+                    <div class="text-center">
+                        <div class="text-xs font-bold text-slate-300">Meetings</div>
+                        <div class="text-[10px] text-slate-500" id="score-meeting-time">--</div>
+                    </div>
+                </div>
+
+                <!-- Breaks -->
+                <div class="flex flex-col items-center gap-2">
+                    <div class="relative w-24 h-24 flex items-center justify-center rounded-full" id="ring-break"
+                        style="background: conic-gradient(#3B82F6 0%, #1e293b 0);">
+                        <div class="absolute inset-1 bg-slate-800 rounded-full flex items-center justify-center">
+                            <span class="text-lg font-bold text-white" id="score-break-val">--</span>
+                        </div>
+                    </div>
+                    <div class="text-center">
+                        <div class="text-xs font-bold text-slate-300">Breaks</div>
+                        <div class="text-[10px] text-slate-500" id="score-break-time">--</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Break Timer -->
+        <div
+            class="bg-slate-800/50 rounded-2xl p-6 border border-slate-700/50 backdrop-blur-sm flex flex-col justify-between">
+            <div>
+                <h3 class="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">Since Last Break</h3>
+                <div class="text-4xl font-bold text-white tracking-tight" id="time-since-break">0:00:00</div>
+            </div>
+            <div class="mt-4">
+                <button id="break-toggle-btn" onclick="toggleBreak()"
+                    class="w-full bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold py-2 px-4 rounded transition-colors">
+                    Start Break
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Row 3: Time Breakdown, Work Blocks, Activity -->
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-5">
+
+        <!-- Time Breakdown -->
+        <div class="bg-slate-800/50 rounded-2xl p-6 border border-slate-700/50 backdrop-blur-sm flex flex-col">
+            <h3 class="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-4">Time Breakdown</h3>
+            <div class="flex-1 overflow-y-auto pr-2 space-y-4" id="category-breakdown-list">
+                <!-- Injected via JS -->
+                <div class="text-center text-slate-500 text-xs py-10">Loading breakdown...</div>
+            </div>
+        </div>
+
+        <!-- Application Breakdown -->
+        <div class="bg-slate-800/50 rounded-2xl p-6 border border-slate-700/50 backdrop-blur-sm flex flex-col">
+            <h3 class="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-4">Application Breakdown</h3>
+            <div class="flex-1 overflow-y-auto pr-2 space-y-4" id="app-breakdown-list">
+                <div class="text-center text-slate-500 text-sm py-4">Loading apps...</div>
+            </div>
+        </div>
+
+        <!-- Activity Log -->
+        <div class="bg-slate-800/50 rounded-2xl p-6 border border-slate-700/50 backdrop-blur-sm flex flex-col">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-xs font-semibold text-slate-400 uppercase tracking-wider">Activity</h3>
+                <a href="/activities" class="text-xs text-indigo-400 hover:text-indigo-300">View All</a>
+            </div>
+            <div class="flex-1 overflow-y-auto max-h-80 pr-2">
+                <table class="w-full text-left text-xs text-slate-300">
+                    <tbody class="divide-y divide-slate-700/50" id="activity-table-body">
+                        <!-- Injected via JS -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Interaction Modal -->
+<div id="interaction-modal"
+    class="fixed inset-0 bg-slate-900/80 backdrop-blur-sm hidden flex items-center justify-center z-50">
+    <div
+        class="bg-slate-800 rounded-2xl border border-slate-700 w-full max-w-4xl max-h-[90vh] flex flex-col shadow-2xl">
+        <!-- Header -->
+        <div class="p-6 border-b border-slate-700 flex justify-between items-center bg-slate-800/50 rounded-t-2xl">
+            <div class="flex items-center gap-6">
+                <div class="flex items-center gap-2 px-3 py-1 bg-slate-700/50 rounded-lg border border-slate-600/50">
+                    <input type="checkbox" id="modal-select-all" onchange="toggleSelectAll(this.checked)"
+                        class="w-5 h-5 bg-slate-700 border-slate-500 rounded text-indigo-500 focus:ring-indigo-500 cursor-pointer accent-indigo-500">
+                    <label for="modal-select-all"
+                        class="text-sm font-bold text-slate-200 cursor-pointer select-none">Select All Items</label>
+                </div>
+                <div>
+                    <h2 class="text-xl font-bold text-white" id="modal-title">Category Details</h2>
+                    <p class="text-xs text-slate-400 mt-1">Select activities to assign them in bulk.</p>
+                </div>
+            </div>
+            <div class="flex items-center gap-4">
+                <div class="flex flex-col gap-1">
+                    <select id="bulk-client-select"
+                        class="bg-slate-700 border border-slate-600 text-white text-[10px] rounded px-2 py-1 outline-none focus:border-indigo-500 w-32">
+                        <option value="">Select Client...</option>
+                        <!-- Populated by JS -->
+                    </select>
+                    <button onclick="assignBulk()"
+                        class="bg-indigo-600 hover:bg-indigo-500 text-white text-[10px] font-bold py-1 px-2 rounded transition-colors text-center">
+                        Assign Client
+                    </button>
+                </div>
+                <div class="w-px h-10 bg-slate-700"></div>
+                <div class="flex flex-col gap-1">
+                    <select id="bulk-category-select"
+                        class="bg-slate-700 border border-slate-600 text-white text-[10px] rounded px-2 py-1 outline-none focus:border-indigo-500 w-32">
+                        <option value="">Select Category...</option>
+                        <!-- Populated by JS -->
+                    </select>
+                    <button onclick="assignCategoryBulk()"
+                        class="bg-emerald-600 hover:bg-emerald-500 text-white text-[10px] font-bold py-1 px-2 rounded transition-colors text-center">
+                        Assign Category
+                    </button>
+                </div>
+                <button onclick="closeModal()" class="text-slate-400 hover:text-white ml-2">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12">
+                        </path>
+                    </svg>
+                </button>
+            </div>
+        </div>
+
+        <!-- Content -->
+        <div class="flex-1 overflow-y-auto p-6" id="modal-content">
+            <!-- Injected via JS -->
+            <div class="text-center text-slate-500 py-20">Loading...</div>
+        </div>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+    // --- Global State ---
+    let isTracking = true;
+    let isBreak = false;
+    let sessionStartTs = null;
+    let serverTimeOffset = 0;
+    let dateOffset = 0;
+    let viewMode = 'day';
+
+    // --- Charts instances ---
+    let focusChartInstance = null;
+    let clientChartInstance = null;
+    let timelineChartInstance = null;
+    let clientsCache = [];
+    let categoriesCache = [];
+
+    // --- Date Formatting ---
+    function updateDateHeader() {
+        const d = new Date();
+        d.setDate(d.getDate() + dateOffset);
+        const options = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
+        document.getElementById('dashboard-date').innerText = d.toLocaleDateString('en-US', options);
+    }
+
+    function changeDay(delta) {
+        if (viewMode === 'day') {
+            dateOffset += delta;
+        } else {
+            // Jump by 7 days
+            dateOffset += delta * 7;
+        }
+        updateDateHeader();
+        fetchStats();
+    }
+
+    function setMode(mode) {
+        viewMode = mode;
+        const dayBtn = document.getElementById('toggle-day');
+        const weekBtn = document.getElementById('toggle-week');
+
+        if (mode === 'day') {
+            dayBtn.className = "px-3 py-1 text-[10px] font-bold rounded-md bg-indigo-600 text-white transition-all";
+            weekBtn.className = "px-3 py-1 text-[10px] font-bold rounded-md text-slate-400 hover:text-white transition-all";
+        } else {
+            weekBtn.className = "px-3 py-1 text-[10px] font-bold rounded-md bg-indigo-600 text-white transition-all";
+            dayBtn.className = "px-3 py-1 text-[10px] font-bold rounded-md text-slate-400 hover:text-white transition-all";
+        }
+        fetchStats();
+    }
+
+    // --- Controls Logic ---
+    async function toggleTracking() {
+        const action = isTracking ? 'pause' : 'resume';
+        const res = await fetch(`/api/control/${action}`, { method: 'POST' });
+        if (res.ok) fetchStats();
+    }
+
+    async function toggleBreak() {
+        const action = isBreak ? 'break_end' : 'break_start';
+        const res = await fetch(`/api/control/${action}`, { method: 'POST' });
+        if (res.ok) fetchStats();
+    }
+
+    function updateBreakDisplay() {
+        if (!sessionStartTs || dateOffset !== 0) {
+            document.getElementById('time-since-break').innerText = "00:00:00";
+            return;
+        }
+
+        const now = new Date(Date.now() + serverTimeOffset);
+        const start = new Date(sessionStartTs);
+        const diff = Math.max(0, Math.floor((now - start) / 1000));
+
+        const h = Math.floor(diff / 3600);
+        const m = Math.floor((diff % 3600) / 60);
+        const s = diff % 60;
+
+        document.getElementById('time-since-break').innerText =
+            `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+    }
+
+    let breakTimerInterval = setInterval(updateBreakDisplay, 1000);
+
+
+    // --- Chart Initialization ---
+
+    function initFocusChart(score) {
+        const ctx = document.getElementById('focusScoreChart').getContext('2d');
+        if (focusChartInstance) focusChartInstance.destroy();
+
+        focusChartInstance = new Chart(ctx, {
+            type: 'doughnut',
+            data: {
+                labels: ['Focus', 'Other'],
+                datasets: [{
+                    data: [score, 100 - score],
+                    backgroundColor: ['#10B981', '#1e293b'],
+                    borderWidth: 0,
+                    cutout: '85%',
+                    circumference: 360,
+                    rotation: 0
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { display: false },
+                    tooltip: {
+                        enabled: true,
+                        callbacks: {
+                            label: function (context) {
+                                let label = context.label || '';
+                                if (label) {
+                                    label += ': ';
+                                }
+                                if (context.parsed !== null) {
+                                    label += context.parsed + '%';
+                                }
+                                return label;
+                            }
+                        }
+                    }
+                },
+                animation: { duration: 1000 }
+            }
+        });
+    }
+
+    function initTimelineChart(timelineData) {
+        const ctx = document.getElementById('timelineChart').getContext('2d');
+        if (timelineChartInstance) timelineChartInstance.destroy();
+
+        const labels = timelineData.map(d => d.hour);
+        const focusData = timelineData.map(d => d.focus);
+        const commsData = timelineData.map(d => d.comms);
+
+        timelineChartInstance = new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: labels,
+                datasets: [
+                    { label: 'Focus', data: focusData, backgroundColor: '#10B981', stack: 'Stack 0', borderRadius: 2 },
+                    { label: 'Comms', data: commsData, backgroundColor: '#A855F7', stack: 'Stack 0', borderRadius: 2 }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    x: {
+                        stacked: true,
+                        grid: { display: false },
+                        ticks: { color: '#94a3b8', font: { size: 10 } }
+                    },
+                    y: {
+                        stacked: true,
+                        beginAtZero: true,
+                        max: viewMode === 'day' ? 3600 : null, // Auto-scale for week
+                        grid: { color: '#334155', borderDash: [2, 2] },
+                        ticks: {
+                            color: '#64748b',
+                            font: { size: 8 },
+                            callback: (v) => {
+                                if (viewMode === 'day') {
+                                    return v === 3600 ? '1h' : (v === 1800 ? '30m' : '');
+                                } else {
+                                    return formatTime(v);
+                                }
+                            }
+                        }
+                    }
+                },
+                plugins: {
+                    legend: {
+                        display: true,
+                        position: 'top',
+                        align: 'end',
+                        labels: { color: '#94a3b8', boxWidth: 8, font: { size: 10 } }
+                    },
+                    tooltip: {
+                        callbacks: {
+                            label: function (ctx) {
+                                return ctx.dataset.label + ': ' + formatTime(ctx.raw);
+                            }
+                        }
+                    }
+                }
+            }
+        });
+    }
+
+    function initSummaryCharts(summaryData) {
+        // No client chart anymore - using list
+    }
+
+    // --- Data Fetching ---
+
+    function getCurrentDateStr() {
+        const d = new Date();
+        d.setDate(d.getDate() + dateOffset);
+        return d.toISOString().split('T')[0];
+    }
+
+    async function fetchStats() {
+        try {
+            const dateStr = getCurrentDateStr();
+            const query = `?date=${dateStr}&view=${viewMode}`;
+
+            // Parallel Fetch
+            const [activitiesRes, focusRes, workRes, summaryRes, blocksRes, statusRes, scoresRes, timelineRes] = await Promise.all([
+                fetch(`/api/activities${query}&aggregated=true`),
+                fetch(`/api/focus_stats${query}`),
+                fetch(`/api/work_stats${query}`),
+                fetch(`/api/summary${query}`),
+                fetch(`/api/work_blocks${query}`),
+                fetch(`/api/status${query}`),
+                fetch(`/api/scores${query}`),
+                fetch(`/api/timeline${query}`)
+            ]);
+
+            const activities = await activitiesRes.json();
+            const focusStats = await focusRes.json();
+            const workStats = await workRes.json();
+            const summaryStats = await summaryRes.json();
+            const workBlocks = await blocksRes.json();
+            const statusData = await statusRes.json();
+            const scoresData = await scoresRes.json();
+            const timelineData = await timelineRes.json();
+
+            // Sync Date UI
+            const todayLabel = document.getElementById('day-label');
+            if (viewMode === 'day') {
+                if (dateOffset === 0) todayLabel.innerText = "Today";
+                else if (dateOffset === -1) todayLabel.innerText = "Yesterday";
+                else todayLabel.innerText = dateOffset > 0 ? `+${dateOffset} days` : `${dateOffset} days`;
+            } else {
+                if (dateOffset === 0) todayLabel.innerText = "This Week";
+                else if (dateOffset < 0) todayLabel.innerText = `${Math.abs(dateOffset)} weeks ago`;
+                else todayLabel.innerText = `+${dateOffset} weeks`;
+            }
+
+            // Sync session & timers
+            isTracking = statusData.status === 'running';
+            isBreak = statusData.status === 'break' || statusData.status === 'paused';
+            sessionStartTs = statusData.session_start;
+
+            // Server time offset
+            const serverDate = new Date(statusData.server_time);
+            serverTimeOffset = serverDate.getTime() - Date.now();
+
+            const trackBtn = document.getElementById('tracking-toggle-btn');
+            const breakBtn = document.getElementById('break-toggle-btn');
+
+            if (isTracking) {
+                trackBtn.innerText = 'Disable Tracking';
+                trackBtn.className = "w-full bg-red-600 hover:bg-red-500 text-white text-xs font-bold py-2 px-4 rounded transition-colors";
+                breakBtn.innerText = 'Start Break';
+                breakBtn.className = "w-full bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold py-2 px-4 rounded transition-colors";
+            } else {
+                trackBtn.innerText = 'Resume Tracking';
+                trackBtn.className = "w-full bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold py-2 px-4 rounded transition-colors";
+                breakBtn.innerText = 'End Break';
+                breakBtn.className = "w-full bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold py-2 px-4 rounded transition-colors";
+            }
+
+            updateDashboard(activities, focusStats, workStats, summaryStats, workBlocks, scoresData, timelineData);
+
+        } catch (error) {
+            console.error("Error fetching data:", error);
+        }
+    }
+
+    function formatTime(seconds) {
+        if (seconds < 60) return `${Math.round(seconds)}s`;
+        const h = Math.floor(seconds / 3600);
+        const m = Math.floor((seconds % 3600) / 60);
+
+        if (h > 0) {
+            return `${h} hr ${m} min`;
+        } else {
+            return `${m} min`;
+        }
+    }
+
+    function stringToColor(str) {
+        let hash = 0;
+        for (let i = 0; i < str.length; i++) {
+            hash = str.charCodeAt(i) + ((hash << 5) - hash);
+        }
+        const c = (hash & 0x00FFFFFF).toString(16).toUpperCase();
+        return '#' + '00000'.substring(0, 6 - c.length) + c;
+    }
+
+    function updateDashboard(activities, focusStats, workStats, summaryStats, workBlocks, scoresData, timelineData) {
+        // 1. Work Hours & Overtime
+        document.getElementById('total-time-display').innerText = formatTime(workStats.total_duration);
+
+        // Progress against 9h (32400s)
+        const pct = Math.min((workStats.total_duration / 32400) * 100, 100);
+        document.getElementById('work-progress-bar').style.width = `${pct}%`;
+        document.getElementById('progress-percent').innerText = `${Math.round(pct)}% of 9h goal`;
+
+        const otElem = document.getElementById('overtime-display');
+        if (workStats.is_overtime || workStats.overtime_duration > 0) {
+            otElem.classList.remove('hidden');
+            otElem.innerText = `+${formatTime(workStats.overtime_duration)} Overtime`;
+        } else {
+            otElem.classList.add('hidden');
+        }
+
+        // 2. Scores Card
+        if (scoresData) {
+            // Focus Ring
+            document.getElementById('ring-focus').style.background = `conic-gradient(#10B981 ${scoresData.focus.pct}%, #1e293b 0)`;
+            document.getElementById('score-focus-val').innerText = `${scoresData.focus.pct}%`;
+            document.getElementById('score-focus-time').innerText = formatTime(scoresData.focus.time);
+
+            // Meeting Ring
+            document.getElementById('ring-meeting').style.background = `conic-gradient(#A855F7 ${scoresData.meeting.pct}%, #1e293b 0)`;
+            document.getElementById('score-meeting-val').innerText = `${scoresData.meeting.pct}%`;
+            document.getElementById('score-meeting-time').innerText = formatTime(scoresData.meeting.time);
+
+            // Break Ring
+            document.getElementById('ring-break').style.background = `conic-gradient(#3B82F6 ${scoresData.break.pct}%, #1e293b 0)`;
+            document.getElementById('score-break-val').innerText = `${scoresData.break.pct}%`;
+            document.getElementById('score-break-time').innerText = formatTime(scoresData.break.time);
+        }
+
+        // 3. Timeline
+        if (timelineData) {
+            initTimelineChart(timelineData);
+        }
+
+        // 4. Activity List (Aggregated)
+        const tbody = document.getElementById('activity-table-body');
+        tbody.innerHTML = '';
+
+        // Ensure latest activities appear at the top. 
+        // Backend returns DESC (latest first) for aggregated, but if not, we reverse.
+        // Let's explicitly sort by timestamp to be sure.
+        const sortedActivities = [...activities].sort((a, b) => b.timestamp.localeCompare(a.timestamp));
+
+        sortedActivities.slice(0, 20).forEach(act => {
+            const timeStr = act.timestamp.split(' ')[1].substring(0, 5); // HH:MM
+            const row = `
+                    <tr class="hover:bg-slate-800/30 transition-colors">
+                        <td class="px-2 py-2 whitespace-nowrap text-slate-500 text-[10px]">${timeStr}</td>
+                        <td class="px-2 py-2 whitespace-nowrap truncate max-w-[120px]" title="${act.window_title}">
+                            <span class="text-slate-300 font-bold">${act.app_name}</span>
+                            <span class="text-slate-500 mx-1">-</span>
+                            ${act.window_title}
+                        </td>
+                        <td class="px-2 py-2 whitespace-nowrap text-right text-[10px] text-slate-400">${formatTime(act.duration)}</td>
+                    </tr>
+                `;
+            tbody.innerHTML += row;
+        });
+
+        // 5. Client Breakdown
+        const clientList = document.getElementById('client-breakdown-list');
+        clientList.innerHTML = '';
+
+        if (summaryStats.by_client && summaryStats.by_client.length > 0) {
+            const totalDur = summaryStats.total_duration || 1;
+
+            summaryStats.by_client.forEach(client => {
+                const clientPct = Math.round((client.total_time / totalDur) * 100);
+                const color = stringToColor(client.client);
+
+                const item = document.createElement('div');
+                item.className = "flex items-center gap-3 text-xs p-2 cursor-pointer hover:bg-slate-700/50 active:bg-slate-700 rounded-xl transition-all group/item";
+                item.title = `Click to see details for ${client.client}`;
+                item.addEventListener('click', () => openDrilldownModal('client', client.client));
+
+                item.innerHTML = `
+                    <div class="w-8 text-right text-slate-400 font-medium group-hover/item:text-indigo-400 transition-colors pointer-events-none">${clientPct}%</div>
+                    <div class="w-24 font-bold text-slate-200 truncate pointer-events-none" title="${client.client}">${client.client}</div>
+                    <div class="flex-1 bg-slate-700/50 rounded-full h-1.5 overflow-hidden pointer-events-none">
+                        <div class="h-full rounded-full transition-all duration-500" style="width: ${clientPct}%; background-color: ${color}"></div>
+                    </div>
+                    <div class="w-20 text-right text-slate-300 whitespace-nowrap font-medium pointer-events-none">${formatTime(client.total_time)}</div>
+                `;
+                clientList.appendChild(item);
+            });
+        } else {
+            clientList.innerHTML = '<div class="text-center text-slate-500 text-xs py-4">No client activity yet</div>';
+        }
+
+        // 3. Application Breakdown (Replaces Work Blocks)
+        const appList = document.getElementById('app-breakdown-list');
+        appList.innerHTML = '';
+
+        if (summaryStats.by_app && summaryStats.by_app.length > 0) {
+            const totalDur = summaryStats.total_duration || 1;
+
+            // Show top 10 apps
+            summaryStats.by_app.slice(0, 10).forEach(app => {
+                const appPct = Math.round((app.total_time / totalDur) * 100);
+                const color = stringToColor(app.app_name); // Dynamic color
+
+                const item = document.createElement('div');
+                item.className = "flex items-center gap-3 text-xs p-1";
+
+                item.innerHTML = `
+                    <div class="w-8 text-right text-slate-400 font-medium">${appPct}%</div>
+                    <div class="w-24 font-bold text-slate-200 truncate" title="${app.app_name}">${app.app_name}</div>
+                    <div class="flex-1 bg-slate-700 rounded-full h-1.5 overflow-hidden">
+                        <div class="h-full rounded-full" style="width: ${appPct}%; background-color: ${color}"></div>
+                    </div>
+                    <div class="w-20 text-right text-slate-300 whitespace-nowrap font-medium">${formatTime(app.total_time)}</div>
+                `;
+                appList.appendChild(item);
+            });
+        } else {
+            appList.innerHTML = '<div class="text-center text-slate-500 text-xs py-4">No apps activity yet</div>';
+        }
+
+        // 5. Summary Charts
+        initSummaryCharts(summaryStats);
+
+        // 6. Populate Category Breakdown List
+        const catList = document.getElementById('category-breakdown-list');
+        catList.innerHTML = '';
+
+        if (summaryStats.by_category && summaryStats.by_category.length > 0) {
+            // Determine max for logic? Or just total
+            const totalDur = summaryStats.total_duration || 1;
+
+            summaryStats.by_category.forEach(cat => {
+                const catPct = Math.round((cat.total_time / totalDur) * 100);
+                const color = cat.color || '#94a3b8'; // fallback gray
+
+                const item = document.createElement('div');
+                item.className = "flex items-center gap-3 text-xs cursor-pointer hover:bg-slate-700/50 active:bg-slate-700 rounded-xl p-2 transition-all group/item";
+                item.title = `Click to see details for ${cat.category}`;
+                item.addEventListener('click', () => openDrilldownModal('category', cat.category));
+
+                item.innerHTML = `
+                        <div class="w-8 text-right text-slate-400 font-medium group-hover/item:text-indigo-400 transition-colors pointer-events-none">${catPct}%</div>
+                        <div class="w-24 font-bold text-slate-200 truncate pointer-events-none" title="${cat.category}">${cat.category}</div>
+                        <div class="flex-1 bg-slate-700/50 rounded-full h-1.5 overflow-hidden pointer-events-none">
+                            <div class="h-full rounded-full transition-all duration-500" style="width: ${catPct}%; background-color: ${color}"></div>
+                        </div>
+                        <div class="w-20 text-right text-slate-300 whitespace-nowrap font-medium pointer-events-none">${formatTime(cat.total_time)}</div>
+                    `;
+                catList.appendChild(item);
+            });
+        } else {
+            catList.innerHTML = '<div class="text-center text-slate-500 text-xs py-4">No data yet</div>';
+        }
+    }
+
+    // --- Interaction Modal Logic ---
+
+    async function openDrilldownModal(type, name) {
+        const modal = document.getElementById('interaction-modal');
+        const title = document.getElementById('modal-title');
+        const content = document.getElementById('modal-content');
+        const selectAllCb = document.getElementById('modal-select-all');
+        if (selectAllCb) selectAllCb.checked = false;
+
+        modal.classList.remove('hidden');
+        title.innerText = `${name} Details`;
+
+        if (clientsCache.length === 0) {
+            const res = await fetch('/api/clients');
+            clientsCache = await res.json();
+            const select = document.getElementById('bulk-client-select');
+            select.innerHTML = '<option value="">Select Client...</option>';
+            clientsCache.forEach(c => {
+                select.innerHTML += `<option value="${c.id}">${c.name}</option>`;
+            });
+        }
+
+        if (categoriesCache.length === 0) {
+            const res = await fetch('/api/categories');
+            categoriesCache = await res.json();
+            const select = document.getElementById('bulk-category-select');
+            select.innerHTML = '<option value="">Select Category...</option>';
+            categoriesCache.forEach(c => {
+                select.innerHTML += `<option value="${c.id}">${c.name}</option>`;
+            });
+        }
+
+        try {
+            const dateStr = getCurrentDateStr();
+            const endpoint = type === 'client' ? `/api/client_details/${encodeURIComponent(name)}?date=${dateStr}` : `/api/category_details/${encodeURIComponent(name)}?date=${dateStr}`;
+            const res = await fetch(endpoint);
+            const grouped = await res.json();
+
+            content.innerHTML = '';
+
+            if (Object.keys(grouped).length === 0) {
+                content.innerHTML = '<div class="text-center text-slate-500">No details available.</div>';
+                return;
+            }
+
+            for (const [appName, appData] of Object.entries(grouped)) {
+                const appSection = document.createElement('div');
+                appSection.className = "mb-8 bg-slate-800/50 rounded-xl p-4 border border-slate-700/50";
+                appSection.innerHTML = `
+                    <div class="flex justify-between items-center mb-4">
+                        <h3 class="text-lg font-bold text-white flex items-center gap-2">
+                            <span class="w-2 h-8 bg-indigo-500 rounded-full"></span>
+                            ${appName}
+                        </h3>
+                        <span class="text-slate-400 font-medium">${formatTime(appData.total_duration)}</span>
+                    </div>
+                    `;
+
+                const itemsContainer = document.createElement('div');
+                itemsContainer.className = "space-y-2";
+
+                for (const [title, titleData] of Object.entries(appData.items)) {
+                    const itemRow = document.createElement('div');
+                    itemRow.className = "group border-l border-slate-700 pl-4 ml-1 hover:border-slate-500 hover:bg-slate-700/30 transition-all cursor-pointer rounded-r-lg";
+
+                    const ids = titleData.activities.map(a => a.id).join(',');
+
+                    itemRow.innerHTML = `
+                        <div class="flex items-start justify-between py-2 px-2">
+                            <div class="flex items-start gap-3 flex-1 overflow-hidden pointer-events-none">
+                                    <input type="checkbox" class="mt-1 activity-checkbox w-5 h-5 bg-slate-700 border-slate-500 rounded text-indigo-500 focus:ring-indigo-500 pointer-events-auto accent-indigo-500" value="${ids}">
+                                    <div class="min-w-0">
+                                        <div class="text-sm text-slate-300 truncate font-medium" title="${title}">${title}</div>
+                                        <div class="text-[10px] text-slate-500 mt-1 flex gap-2">
+                                        <span>${titleData.activities.length} logs</span>
+                                        <span>•</span>
+                                        <span class="text-indigo-400 max-w-[150px] truncate">${titleData.activities[0].client}</span>
+                                        </div>
+                                    </div>
+                            </div>
+                            <span class="text-xs text-slate-400 whitespace-nowrap ml-4 pointer-events-none font-medium">${formatTime(titleData.total_duration)}</span>
+                        </div>
+                        `;
+
+                    // Toggle checkbox on row click
+                    itemRow.onclick = (e) => {
+                        if (e.target.tagName !== 'INPUT') {
+                            const cb = itemRow.querySelector('.activity-checkbox');
+                            cb.checked = !cb.checked;
+                        }
+                    };
+
+                    itemsContainer.appendChild(itemRow);
+                }
+
+                appSection.appendChild(itemsContainer);
+                content.appendChild(appSection);
+            }
+
+        } catch (e) {
+            console.error("Modal error:", e);
+            content.innerHTML = '<div class="text-center text-red-500">Failed to load details.</div>';
+        }
+    }
+
+    function closeModal() {
+        document.getElementById('interaction-modal').classList.add('hidden');
+    }
+
+    function toggleSelectAll(checked) {
+        const checkboxes = document.querySelectorAll('.activity-checkbox');
+        checkboxes.forEach(cb => cb.checked = checked);
+    }
+
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') closeModal();
+    });
+
+    async function assignBulk() {
+        const clientSelect = document.getElementById('bulk-client-select');
+        const clientId = clientSelect.value;
+
+        if (!clientId) {
+            alert("Please select a client first.");
+            return;
+        }
+
+        const checkboxes = document.querySelectorAll('.activity-checkbox:checked');
+        if (checkboxes.length === 0) {
+            alert("Please select at least one item to assign.");
+            return;
+        }
+
+        let allIds = [];
+        checkboxes.forEach(cb => {
+            const ids = cb.value.split(',').filter(x => x);
+            allIds = allIds.concat(ids);
+        });
+
+        try {
+            const res = await fetch('/api/activities/assign_bulk', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ activity_ids: allIds, client_id: clientId })
+            });
+
+            if (res.ok) {
+                closeModal();
+                fetchStats();
+            } else {
+                alert("Failed to assign activities.");
+            }
+        } catch (e) {
+            console.error("Assign error", e);
+            alert("An error occurred.");
+        }
+    }
+
+    async function assignCategoryBulk() {
+        const categorySelect = document.getElementById('bulk-category-select');
+        const categoryId = categorySelect.value;
+
+        if (!categoryId) {
+            alert("Please select a category first.");
+            return;
+        }
+
+        const checkboxes = document.querySelectorAll('.activity-checkbox:checked');
+        if (checkboxes.length === 0) {
+            alert("Please select at least one item to assign.");
+            return;
+        }
+
+        let allIds = [];
+        checkboxes.forEach(cb => {
+            const ids = cb.value.split(',').filter(x => x);
+            allIds = allIds.concat(ids);
+        });
+
+        try {
+            const res = await fetch('/api/activities/assign_category_bulk', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ activity_ids: allIds, category_id: categoryId })
+            });
+
+            if (res.ok) {
+                closeModal();
+                fetchStats();
+            } else {
+                alert("Failed to assign category.");
+            }
+        } catch (e) {
+            console.error("Assign error", e);
+            alert("An error occurred.");
+        }
+    }
+
+    // Initial Load
+    updateDateHeader();
+    fetchStats();
+    setInterval(fetchStats, 60000); // 1 min refresh
+</script>
+{% endblock %}

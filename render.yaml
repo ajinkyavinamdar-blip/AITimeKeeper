@@ -1,0 +1,15 @@
+services:
+  - type: web
+    name: aitimekeeper
+    runtime: python
+    buildCommand: pip install -r requirements.txt && pip install gunicorn
+    startCommand: gunicorn "src.web.app:app" --bind 0.0.0.0:$PORT --workers 2 --timeout 120
+    envVars:
+      - key: SECRET_KEY
+        generateValue: true
+      - key: DATABASE_PATH
+        value: /data/timesheet.db
+    disk:
+      name: timekeeper-data
+      mountPath: /data
+      sizeGB: 1

@@ -1,0 +1,164 @@
+{% extends "application.html" %}
+
+{% block header_left %}
+<h2 class="text-xl font-bold text-white tracking-tight">Daily Summary</h2>
+{% endblock %}
+
+{% block content %}
+<div class="space-y-8">
+    <div class="space-y-6">
+
+        <!-- Summary Cards -->
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <!-- Total Time Card -->
+            <div
+                class="bg-slate-800/50 rounded-2xl p-6 border border-slate-700/50 backdrop-blur-sm shadow-lg shadow-indigo-500/5">
+                <h3 class="text-slate-500 text-[10px] font-bold uppercase tracking-wider mb-2">Total Time</h3>
+                <div class="text-3xl font-bold text-white" id="total-time">Loading...</div>
+                <p class="text-slate-600 text-[10px] mt-2 font-medium">TRACKED TODAY</p>
+            </div>
+
+            <!-- Top App Card -->
+            <div
+                class="bg-slate-800/50 rounded-2xl p-6 border border-slate-700/50 backdrop-blur-sm shadow-lg shadow-indigo-500/5">
+                <h3 class="text-slate-500 text-[10px] font-bold uppercase tracking-wider mb-2">Top Application</h3>
+                <div class="text-xl font-bold text-white truncate" id="top-app">Loading...</div>
+                <p class="text-slate-600 text-[10px] mt-2 font-medium">MOST ACTIVE APP</p>
+            </div>
+
+            <!-- Top Client Card -->
+            <div
+                class="bg-slate-800/50 rounded-2xl p-6 border border-slate-700/50 backdrop-blur-sm shadow-lg shadow-indigo-500/5">
+                <h3 class="text-slate-500 text-[10px] font-bold uppercase tracking-wider mb-2">Top Client</h3>
+                <div class="text-xl font-bold text-white truncate" id="top-client">Loading...</div>
+                <p class="text-slate-600 text-[10px] mt-2 font-medium">MOST ACTIVE PROJECT</p>
+            </div>
+        </div>
+
+        <!-- Charts Row -->
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <!-- App Chart -->
+            <div class="bg-slate-800/50 p-6 rounded-2xl border border-slate-700/50 backdrop-blur-sm">
+                <h3 class="text-xs font-bold text-slate-400 uppercase tracking-widest mb-6 px-1">App Distribution</h3>
+                <div class="relative h-64">
+                    <canvas id="appChart"></canvas>
+                </div>
+            </div>
+
+            <!-- Client Chart -->
+            <div class="bg-slate-800/50 p-6 rounded-2xl border border-slate-700/50 backdrop-blur-sm">
+                <h3 class="text-xs font-bold text-slate-400 uppercase tracking-widest mb-6 px-1">Client Allocation</h3>
+                <div class="relative h-64">
+                    <canvas id="clientChart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script>
+        function formatDuration(seconds) {
+            const h = Math.floor(seconds / 3600);
+            const m = Math.floor((seconds % 3600) / 60);
+            return `${h}h ${m}m`;
+        }
+
+        let appChartInstance = null;
+        let clientChartInstance = null;
+
+        async function fetchSummary() {
+            try {
+                const response = await fetch('/api/summary');
+                const data = await response.json();
+
+                // Update Cards
+                document.getElementById('total-time').innerText = formatDuration(data.total_duration);
+
+                if (data.by_app.length > 0) {
+                    const topApp = data.by_app[0].app_name;
+                    // Create a link manually since we are inside text content
+                    const link = document.createElement('a');
+                    link.href = `/application/${encodeURIComponent(topApp)}`;
+                    link.className = 'text-indigo-400 hover:text-indigo-300 transition-colors';
+                    link.textContent = topApp;
+
+                    const container = document.getElementById('top-app');
+                    container.innerHTML = '';
+                    container.appendChild(link);
+                } else {
+                    document.getElementById('top-app').innerText = '-';
+                }
+
+                if (data.by_client.length > 0) {
+                    document.getElementById('top-client').innerText = data.by_client[0].client;
+                } else {
+                    document.getElementById('top-client').innerText = '-';
+                }
+
+                // App Chart
+                const appCtx = document.getElementById('appChart').getContext('2d');
+                if (appChartInstance) appChartInstance.destroy();
+
+                appChartInstance = new Chart(appCtx, {
+                    type: 'doughnut',
+                    data: {
+                        labels: data.by_app.slice(0, 5).map(i => i.app_name),
+                        datasets: [{
+                            data: data.by_app.slice(0, 5).map(i => i.total_time),
+                            backgroundColor: ['#EC4899', '#3B82F6', '#F59E0B', '#10B981', '#8B5CF6'],
+                            borderWidth: 0
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: { position: 'right', labels: { color: '#94a3b8' } }
+                        },
+                        onClick: (e, activeEls) => {
+                            if (activeEls.length > 0) {
+                                const index = activeEls[0].index;
+                                const label = data.by_app[index].app_name;
+                                window.location.href = `/application/${encodeURIComponent(label)}`;
+                            }
+                        },
+                        onHover: (e, activeEls) => {
+                            e.native.target.style.cursor = activeEls.length > 0 ? 'pointer' : 'default';
+                        }
+                    }
+                });
+
+                // Client Chart
+                const clientCtx = document.getElementById('clientChart').getContext('2d');
+                if (clientChartInstance) clientChartInstance.destroy();
+
+                clientChartInstance = new Chart(clientCtx, {
+                    type: 'bar',
+                    data: {
+                        labels: data.by_client.map(i => i.client),
+                        datasets: [{
+                            label: 'Duration (seconds)',
+                            data: data.by_client.map(i => i.total_time),
+                            backgroundColor: '#3B82F6',
+                            borderRadius: 4
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        scales: {
+                            y: { beginAtZero: true, grid: { color: '#334155' }, ticks: { color: '#94a3b8' } },
+                            x: { grid: { display: false }, ticks: { color: '#94a3b8' } }
+                        },
+                        plugins: { legend: { display: false } }
+                    }
+                });
+
+            } catch (error) {
+                console.error('Error fetching summary:', error);
+            }
+        }
+
+        fetchSummary();
+    </script>
+    {% endblock %}

@@ -1,0 +1,31 @@
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.DS_Store
+
+# Database
+data/
+*.db
+*.sqlite3
+
+# Environment
+.env
+*.env.local
+
+# Build artifacts
+dist/
+build/
+*.spec
+agent_client/dist/
+agent_client/build/
+
+# Python virtualenvs
+venv/
+.venv/
+env/
+
+# Editor
+.vscode/
+.idea/
+*.swp

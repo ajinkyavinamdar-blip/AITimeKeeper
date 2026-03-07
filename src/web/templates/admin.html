@@ -1,0 +1,407 @@
+{% extends "application.html" %}
+
+{% block header_left %}
+<div>
+    <h1 class="text-xl font-bold text-white tracking-tight">Admin Panel</h1>
+    <div class="flex items-center gap-2 mt-1">
+        <div class="w-1.5 h-1.5 rounded-full bg-amber-500"></div>
+        <span class="text-[10px] font-bold text-amber-400 uppercase tracking-wider">Org-Wide Settings</span>
+    </div>
+</div>
+{% endblock %}
+
+{% block content %}
+<div class="space-y-4 pb-6">
+
+    <!-- Tab Bar -->
+    <div class="flex items-center gap-1 bg-slate-800/50 rounded-2xl p-1.5 border border-slate-700/50 w-fit">
+        <button onclick="switchTab('users')" id="tab-users"
+            class="tab-btn px-5 py-2 text-xs font-bold rounded-xl bg-amber-600 text-white shadow-lg transition-all">
+            👥 Users
+        </button>
+        <button onclick="switchTab('settings')" id="tab-settings"
+            class="tab-btn px-5 py-2 text-xs font-bold rounded-xl text-slate-400 hover:text-white transition-all">
+            ⚙️ Org Settings
+        </button>
+        <button onclick="switchTab('categories')" id="tab-categories"
+            class="tab-btn px-5 py-2 text-xs font-bold rounded-xl text-slate-400 hover:text-white transition-all">
+            🏷️ Categories
+        </button>
+    </div>
+
+    <!-- Toast -->
+    <div id="toast" class="fixed bottom-6 right-6 z-50 hidden">
+        <div id="toast-inner"
+            class="px-5 py-3 rounded-xl text-sm font-semibold shadow-2xl border backdrop-blur-sm transition-all"></div>
+    </div>
+
+    <!-- ===== USERS TAB ===== -->
+    <div id="panel-users" class="tab-panel space-y-4">
+        <!-- Add User Form -->
+        <div class="bg-slate-800/50 rounded-2xl p-6 border border-slate-700/50 backdrop-blur-sm">
+            <h2 class="text-sm font-bold text-amber-400 uppercase tracking-wider mb-4">Add / Edit User</h2>
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
+                <div>
+                    <label class="text-[10px] text-slate-400 uppercase tracking-wider font-semibold">Full Name</label>
+                    <input id="u-name" type="text" placeholder="e.g. Jane Doe"
+                        class="mt-1 w-full bg-slate-900/50 border border-slate-700 text-white text-sm rounded-xl px-4 py-2.5 outline-none focus:border-amber-500 transition-colors">
+                </div>
+                <div>
+                    <label class="text-[10px] text-slate-400 uppercase tracking-wider font-semibold">Email</label>
+                    <input id="u-email" type="email" placeholder="jane@cfologic.com"
+                        class="mt-1 w-full bg-slate-900/50 border border-slate-700 text-white text-sm rounded-xl px-4 py-2.5 outline-none focus:border-amber-500 transition-colors">
+                </div>
+                <div>
+                    <label class="text-[10px] text-slate-400 uppercase tracking-wider font-semibold">Role</label>
+                    <select id="u-role"
+                        class="mt-1 w-full bg-slate-900/50 border border-slate-700 text-white text-sm rounded-xl px-4 py-2.5 outline-none focus:border-amber-500 transition-colors">
+                        <option value="member">Member</option>
+                        <option value="manager">Manager</option>
+                        <option value="admin">Admin</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="text-[10px] text-slate-400 uppercase tracking-wider font-semibold">Reports To</label>
+                    <select id="u-manager"
+                        class="mt-1 w-full bg-slate-900/50 border border-slate-700 text-white text-sm rounded-xl px-4 py-2.5 outline-none focus:border-amber-500 transition-colors">
+                        <option value="">— None —</option>
+                    </select>
+                </div>
+            </div>
+            <div class="mt-4 flex gap-3">
+                <button onclick="saveUser()"
+                    class="px-6 py-2 bg-amber-600 hover:bg-amber-500 text-white text-xs font-bold rounded-xl transition-colors shadow-lg shadow-amber-500/20">
+                    Save User
+                </button>
+                <button onclick="clearUserForm()"
+                    class="px-6 py-2 bg-slate-700 hover:bg-slate-600 text-slate-300 text-xs font-bold rounded-xl transition-colors">
+                    Clear
+                </button>
+            </div>
+        </div>
+
+        <!-- User Table -->
+        <div class="bg-slate-800/50 rounded-2xl border border-slate-700/50 backdrop-blur-sm overflow-hidden">
+            <div class="p-4 border-b border-slate-700/50">
+                <h2 class="text-sm font-bold text-white">Organisation Members</h2>
+                <p class="text-xs text-slate-500 mt-0.5">Manage roles and reporting structure</p>
+            </div>
+            <div class="overflow-x-auto">
+                <table class="w-full text-left text-sm">
+                    <thead>
+                        <tr class="text-[10px] uppercase tracking-wider text-slate-500 border-b border-slate-700/50">
+                            <th class="px-5 py-3">Name</th>
+                            <th class="px-5 py-3">Email</th>
+                            <th class="px-5 py-3">Role</th>
+                            <th class="px-5 py-3">Reports To</th>
+                            <th class="px-5 py-3 text-right">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="users-table-body" class="divide-y divide-slate-700/30">
+                        <tr>
+                            <td colspan="5" class="text-center text-slate-500 text-xs py-10">Loading...</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- ===== SETTINGS TAB ===== -->
+    <div id="panel-settings" class="tab-panel hidden">
+        <div class="bg-slate-800/50 rounded-2xl p-6 border border-slate-700/50 backdrop-blur-sm">
+            <h2 class="text-sm font-bold text-amber-400 uppercase tracking-wider mb-6">Organisation Settings</h2>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                    <label class="text-[10px] text-slate-400 uppercase tracking-wider font-semibold">Company
+                        Name</label>
+                    <input id="s-company_name" type="text"
+                        class="mt-1 w-full bg-slate-900/50 border border-slate-700 text-white text-sm rounded-xl px-4 py-2.5 outline-none focus:border-amber-500 transition-colors">
+                </div>
+                <div>
+                    <label class="text-[10px] text-slate-400 uppercase tracking-wider font-semibold">Default
+                        Currency</label>
+                    <select id="s-default_currency"
+                        class="mt-1 w-full bg-slate-900/50 border border-slate-700 text-white text-sm rounded-xl px-4 py-2.5 outline-none focus:border-amber-500 transition-colors">
+                        <option value="INR">INR ₹</option>
+                        <option value="USD">USD $</option>
+                        <option value="EUR">EUR €</option>
+                        <option value="GBP">GBP £</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="text-[10px] text-slate-400 uppercase tracking-wider font-semibold">Daily Work Hours
+                        Goal</label>
+                    <input id="s-work_hours_goal" type="number" min="1" max="24"
+                        class="mt-1 w-full bg-slate-900/50 border border-slate-700 text-white text-sm rounded-xl px-4 py-2.5 outline-none focus:border-amber-500 transition-colors">
+                </div>
+                <div>
+                    <label class="text-[10px] text-slate-400 uppercase tracking-wider font-semibold">Fiscal Year Start
+                        Month</label>
+                    <select id="s-fiscal_year_start"
+                        class="mt-1 w-full bg-slate-900/50 border border-slate-700 text-white text-sm rounded-xl px-4 py-2.5 outline-none focus:border-amber-500 transition-colors">
+                        <option value="01">January</option>
+                        <option value="04">April</option>
+                        <option value="07">July</option>
+                        <option value="10">October</option>
+                    </select>
+                </div>
+            </div>
+            <div class="mt-6 flex items-center gap-4">
+                <button onclick="saveSettings()"
+                    class="px-6 py-2 bg-amber-600 hover:bg-amber-500 text-white text-xs font-bold rounded-xl transition-colors shadow-lg shadow-amber-500/20">
+                    Save Settings
+                </button>
+                <p class="text-xs text-slate-500">Changes take effect immediately org-wide.</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- ===== CATEGORIES TAB ===== -->
+    <div id="panel-categories" class="tab-panel hidden space-y-4">
+        <!-- Add Category -->
+        <div class="bg-slate-800/50 rounded-2xl p-5 border border-slate-700/50 backdrop-blur-sm">
+            <h2 class="text-sm font-bold text-amber-400 uppercase tracking-wider mb-4">Add New Category</h2>
+            <div class="flex flex-wrap gap-3 items-end">
+                <div>
+                    <label class="text-[10px] text-slate-400 uppercase tracking-wider font-semibold">Name</label>
+                    <input id="c-name" type="text" placeholder="Category name"
+                        class="mt-1 w-40 bg-slate-900/50 border border-slate-700 text-white text-sm rounded-xl px-4 py-2 outline-none focus:border-amber-500 transition-colors">
+                </div>
+                <div>
+                    <label class="text-[10px] text-slate-400 uppercase tracking-wider font-semibold">Color</label>
+                    <input id="c-color" type="color" value="#8B5CF6"
+                        class="mt-1 h-10 w-16 bg-slate-900/50 border border-slate-700 rounded-xl px-1 cursor-pointer">
+                </div>
+                <label class="flex items-center gap-2 text-xs text-slate-300 cursor-pointer select-none">
+                    <input type="checkbox" id="c-is_focus" class="accent-amber-500 w-4 h-4"> Focus
+                </label>
+                <label class="flex items-center gap-2 text-xs text-slate-300 cursor-pointer select-none">
+                    <input type="checkbox" id="c-is_distraction" class="accent-red-500 w-4 h-4"> Distraction
+                </label>
+                <label class="flex items-center gap-2 text-xs text-slate-300 cursor-pointer select-none">
+                    <input type="checkbox" id="c-is_billable" checked class="accent-emerald-500 w-4 h-4"> Billable
+                </label>
+                <button onclick="addCategory()"
+                    class="px-5 py-2 bg-amber-600 hover:bg-amber-500 text-white text-xs font-bold rounded-xl transition-colors">
+                    + Add Category
+                </button>
+            </div>
+        </div>
+
+        <!-- Categories Table -->
+        <div class="bg-slate-800/50 rounded-2xl border border-slate-700/50 backdrop-blur-sm overflow-hidden">
+            <div class="p-4 border-b border-slate-700/50">
+                <h2 class="text-sm font-bold text-white">All Categories</h2>
+                <p class="text-xs text-slate-500 mt-0.5">Toggle flags and billing status for all team members</p>
+            </div>
+            <div id="categories-list" class="divide-y divide-slate-700/30">
+                <div class="text-center text-slate-500 text-xs py-10">Loading...</div>
+            </div>
+        </div>
+    </div>
+
+</div>
+
+<script>
+    // ─── State ───────────────────────────────────────────────────────────────────
+    let allUsers = [];
+    let allCategories = [];
+
+    // ─── Tab Logic ───────────────────────────────────────────────────────────────
+    function switchTab(tab) {
+        document.querySelectorAll('.tab-panel').forEach(p => p.classList.add('hidden'));
+        document.querySelectorAll('.tab-btn').forEach(b => {
+            b.className = 'tab-btn px-5 py-2 text-xs font-bold rounded-xl text-slate-400 hover:text-white transition-all';
+        });
+        document.getElementById(`panel-${tab}`).classList.remove('hidden');
+        const btn = document.getElementById(`tab-${tab}`);
+        btn.className = 'tab-btn px-5 py-2 text-xs font-bold rounded-xl bg-amber-600 text-white shadow-lg transition-all';
+    }
+
+    // ─── Toast ───────────────────────────────────────────────────────────────────
+    function showToast(msg, type = 'success') {
+        const el = document.getElementById('toast');
+        const inner = document.getElementById('toast-inner');
+        const colors = type === 'success'
+            ? 'bg-emerald-900/80 border-emerald-700 text-emerald-300'
+            : 'bg-red-900/80 border-red-700 text-red-300';
+        inner.className = `px-5 py-3 rounded-xl text-sm font-semibold shadow-2xl border backdrop-blur-sm transition-all ${colors}`;
+        inner.textContent = (type === 'success' ? '✓ ' : '✗ ') + msg;
+        el.classList.remove('hidden');
+        setTimeout(() => el.classList.add('hidden'), 3000);
+    }
+
+    // ─── Users ───────────────────────────────────────────────────────────────────
+    async function loadUsers() {
+        const res = await fetch('/api/admin/users');
+        allUsers = await res.json();
+        renderUsersTable();
+        populateManagerDropdown();
+    }
+
+    function populateManagerDropdown() {
+        const sel = document.getElementById('u-manager');
+        sel.innerHTML = '<option value="">— None —</option>';
+        allUsers.forEach(u => {
+            sel.innerHTML += `<option value="${u.id}">${u.name} (${u.email})</option>`;
+        });
+    }
+
+    function renderUsersTable() {
+        const tbody = document.getElementById('users-table-body');
+        if (!allUsers.length) {
+            tbody.innerHTML = '<tr><td colspan="5" class="text-center text-slate-500 text-xs py-10">No users yet.</td></tr>';
+            return;
+        }
+        const roleColors = { admin: 'text-amber-400 bg-amber-500/10 border-amber-500/20', manager: 'text-violet-400 bg-violet-500/10 border-violet-500/20', member: 'text-slate-300 bg-slate-700/30 border-slate-600/20' };
+        tbody.innerHTML = allUsers.map(u => `
+        <tr class="hover:bg-slate-700/20 transition-colors">
+            <td class="px-5 py-3 font-semibold text-white">${u.name}</td>
+            <td class="px-5 py-3 text-slate-400 font-mono text-xs">${u.email}</td>
+            <td class="px-5 py-3">
+                <span class="px-2 py-0.5 rounded-full border text-[10px] font-bold uppercase tracking-wider ${roleColors[u.role] || roleColors.member}">
+                    ${u.role}
+                </span>
+            </td>
+            <td class="px-5 py-3 text-slate-400">${u.manager_name || '—'}</td>
+            <td class="px-5 py-3 text-right">
+                <button onclick="editUser(${JSON.stringify(u).replace(/"/g, '&quot;')})"
+                    class="px-3 py-1 text-[10px] font-bold bg-slate-700 hover:bg-slate-600 text-slate-300 rounded-lg transition-colors mr-2">Edit</button>
+                ${u.email !== 'Ajinkya@CFOLogic.com' ? `<button onclick="deleteUser(${u.id}, '${u.name}')"
+                    class="px-3 py-1 text-[10px] font-bold bg-red-900/50 hover:bg-red-800 text-red-300 rounded-lg transition-colors">Remove</button>` : '<span class="text-[10px] text-slate-600">Protected</span>'}
+            </td>
+        </tr>
+    `).join('');
+    }
+
+    function editUser(u) {
+        document.getElementById('u-name').value = u.name;
+        document.getElementById('u-email').value = u.email;
+        document.getElementById('u-role').value = u.role;
+        document.getElementById('u-manager').value = u.manager_id || '';
+        document.getElementById('u-name').focus();
+    }
+
+    function clearUserForm() {
+        ['u-name', 'u-email'].forEach(id => document.getElementById(id).value = '');
+        document.getElementById('u-role').value = 'member';
+        document.getElementById('u-manager').value = '';
+    }
+
+    async function saveUser() {
+        const payload = {
+            email: document.getElementById('u-email').value.trim(),
+            name: document.getElementById('u-name').value.trim(),
+            role: document.getElementById('u-role').value,
+            manager_id: document.getElementById('u-manager').value || null
+        };
+        if (!payload.email || !payload.name) { showToast('Email and name are required', 'error'); return; }
+        const res = await fetch('/api/admin/users', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+        const data = await res.json();
+        if (res.ok) { showToast('User saved'); clearUserForm(); loadUsers(); }
+        else showToast(data.error || 'Error saving user', 'error');
+    }
+
+    async function deleteUser(id, name) {
+        if (!confirm(`Remove ${name} from the organisation?`)) return;
+        const res = await fetch(`/api/admin/users/${id}`, { method: 'DELETE' });
+        const data = await res.json();
+        if (res.ok) { showToast('User removed'); loadUsers(); }
+        else showToast(data.error || 'Error', 'error');
+    }
+
+    // ─── Settings ────────────────────────────────────────────────────────────────
+    async function loadSettings() {
+        const res = await fetch('/api/admin/settings');
+        const data = await res.json();
+        Object.entries(data).forEach(([k, v]) => {
+            const el = document.getElementById(`s-${k}`);
+            if (el) el.value = v;
+        });
+    }
+
+    async function saveSettings() {
+        const keys = ['company_name', 'default_currency', 'work_hours_goal', 'fiscal_year_start'];
+        const payload = {};
+        keys.forEach(k => { const el = document.getElementById(`s-${k}`); if (el) payload[k] = el.value; });
+        const res = await fetch('/api/admin/settings', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+        if (res.ok) showToast('Settings saved');
+        else showToast('Error saving settings', 'error');
+    }
+
+    // ─── Categories ──────────────────────────────────────────────────────────────
+    async function loadCategories() {
+        const res = await fetch('/api/admin/categories');
+        allCategories = await res.json();
+        renderCategories();
+    }
+
+    function renderCategories() {
+        const container = document.getElementById('categories-list');
+        if (!allCategories.length) {
+            container.innerHTML = '<div class="text-center text-slate-500 text-xs py-10">No categories.</div>';
+            return;
+        }
+        container.innerHTML = allCategories.map(c => `
+        <div class="flex items-center gap-4 px-5 py-3 hover:bg-slate-700/20 transition-colors" id="cat-row-${c.id}">
+            <input type="color" value="${c.color || '#808080'}" onchange="updateCategoryColor(${c.id}, this.value)"
+                class="w-8 h-8 rounded-lg border-0 cursor-pointer bg-transparent">
+            <div class="flex-1 min-w-0">
+                <div class="font-semibold text-white text-sm">${c.name}</div>
+                <div class="flex gap-3 mt-1">
+                    ${c.is_focus ? '<span class="text-[9px] font-bold text-emerald-400 bg-emerald-500/10 px-1.5 py-0.5 rounded border border-emerald-500/20">FOCUS</span>' : ''}
+                    ${c.is_distraction ? '<span class="text-[9px] font-bold text-red-400 bg-red-500/10 px-1.5 py-0.5 rounded border border-red-500/20">DISTRACTION</span>' : ''}
+                    ${c.is_billable ? '<span class="text-[9px] font-bold text-blue-400 bg-blue-500/10 px-1.5 py-0.5 rounded border border-blue-500/20">BILLABLE</span>' : '<span class="text-[9px] font-bold text-slate-500 bg-slate-700/50 px-1.5 py-0.5 rounded border border-slate-600/20">NON-BILLABLE</span>'}
+                </div>
+            </div>
+            <div class="flex items-center gap-4">
+                <label class="flex items-center gap-1.5 text-[10px] text-slate-400 cursor-pointer">
+                    <input type="checkbox" ${c.is_focus ? 'checked' : ''} onchange="updateCatFlag(${c.id},'is_focus',this.checked)" class="accent-emerald-500 w-3.5 h-3.5"> Focus
+                </label>
+                <label class="flex items-center gap-1.5 text-[10px] text-slate-400 cursor-pointer">
+                    <input type="checkbox" ${c.is_distraction ? 'checked' : ''} onchange="updateCatFlag(${c.id},'is_distraction',this.checked)" class="accent-red-500 w-3.5 h-3.5"> Distraction
+                </label>
+                <label class="flex items-center gap-1.5 text-[10px] text-slate-400 cursor-pointer">
+                    <input type="checkbox" ${c.is_billable ? 'checked' : ''} onchange="updateCatFlag(${c.id},'is_billable',this.checked)" class="accent-blue-500 w-3.5 h-3.5"> Billable
+                </label>
+            </div>
+        </div>
+    `).join('');
+    }
+
+    async function addCategory() {
+        const payload = {
+            action: 'add',
+            name: document.getElementById('c-name').value.trim(),
+            color: document.getElementById('c-color').value,
+            is_focus: document.getElementById('c-is_focus').checked,
+            is_distraction: document.getElementById('c-is_distraction').checked,
+            is_billable: document.getElementById('c-is_billable').checked
+        };
+        if (!payload.name) { showToast('Category name required', 'error'); return; }
+        const res = await fetch('/api/admin/categories', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+        const data = await res.json();
+        if (res.ok) { showToast('Category added'); document.getElementById('c-name').value = ''; loadCategories(); }
+        else showToast(data.error || 'Error', 'error');
+    }
+
+    async function updateCatFlag(id, field, value) {
+        const payload = { action: 'update', id, [field]: value };
+        const res = await fetch('/api/admin/categories', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+        if (res.ok) { showToast('Updated'); loadCategories(); }
+        else showToast('Error updating', 'error');
+    }
+
+    async function updateCategoryColor(id, color) {
+        const payload = { action: 'update', id, color };
+        const res = await fetch('/api/admin/categories', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+        if (res.ok) showToast('Color updated');
+    }
+
+    // ─── Init ─────────────────────────────────────────────────────────────────────
+    loadUsers();
+    loadSettings();
+    loadCategories();
+</script>
+{% endblock %}

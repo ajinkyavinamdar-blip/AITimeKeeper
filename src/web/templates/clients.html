@@ -1,0 +1,255 @@
+{% extends "application.html" %}
+
+{% block header_left %}
+<h2 class="text-xl font-bold text-white tracking-tight">Clients</h2>
+{% endblock %}
+
+{% block content %}
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+    <!-- Left Column: Client List -->
+    <div class="lg:col-span-1">
+        <div class="bg-slate-800/50 rounded-2xl shadow-sm border border-slate-700/50 backdrop-blur-sm overflow-hidden">
+            <div class="px-6 py-4 border-b border-slate-700/50 flex justify-between items-center bg-slate-800/30">
+                <h3 class="text-lg font-bold text-white">Clients</h3>
+                <button onclick="openClientModal()"
+                    class="text-xs bg-indigo-600 hover:bg-indigo-500 text-white px-3 py-1.5 rounded-lg font-bold transition-colors">
+                    + Add Client
+                </button>
+            </div>
+            <div class="overflow-y-auto max-h-[600px] p-4 space-y-4" id="client-list-container">
+                <div class="text-center text-slate-500 py-10">Loading clients...</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Right Column: Unassigned Work -->
+    <div class="lg:col-span-2">
+        <div class="bg-slate-800/50 rounded-2xl shadow-sm border border-slate-700/50 backdrop-blur-sm overflow-hidden">
+            <div class="px-6 py-4 border-b border-slate-700/50 bg-slate-800/30">
+                <h3 class="text-lg font-bold text-white">Unassigned Activities (Summarized)</h3>
+                <p class="text-[10px] text-slate-400 mt-1">Grouped by App & Title/URL. Assigning helps categorize past &
+                    future work.</p>
+            </div>
+            <div class="overflow-x-auto">
+                <table class="w-full text-left text-sm text-slate-300">
+                    <thead class="bg-slate-800/30 text-[10px] uppercase font-bold text-slate-500 tracking-wider">
+                        <tr>
+                            <th class="px-6 py-4">App</th>
+                            <th class="px-6 py-4">Window / URL</th>
+                            <th class="px-6 py-4 text-right">Duration</th>
+                            <th class="px-6 py-4 text-right">Action</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-slate-700/30" id="unassigned-body">
+                        <!-- Unassigned items populated here -->
+                        <tr>
+                            <td colspan="4" class="px-6 py-4 text-center text-slate-500">Loading...</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Add Client Modal -->
+<div id="clientModal"
+    class="hidden fixed inset-0 bg-slate-950/80 backdrop-blur-sm overflow-y-auto h-full w-full flex items-center justify-center z-50">
+    <div class="bg-slate-800 p-6 rounded-2xl border border-slate-700 shadow-2xl w-96">
+        <h3 class="text-lg font-bold mb-4 text-white">Add New Client</h3>
+        <input type="text" id="newClientName" placeholder="Client Name"
+            class="w-full p-2.5 bg-slate-900 border border-slate-700 rounded-lg mb-3 text-white outline-none focus:border-indigo-500 text-sm">
+        <input type="text" id="newClientNotes" placeholder="Notes (Optional)"
+            class="w-full p-2.5 bg-slate-900 border border-slate-700 rounded-lg mb-4 text-white outline-none focus:border-indigo-500 text-sm">
+        <div class="flex justify-end gap-3">
+            <button onclick="closeClientModal()"
+                class="px-4 py-2 bg-slate-700 text-slate-300 rounded-lg hover:bg-slate-600 transition-colors text-sm font-bold">Cancel</button>
+            <button onclick="saveClient()"
+                class="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-500 transition-colors text-sm font-bold">Save</button>
+        </div>
+    </div>
+</div>
+
+<!-- Assign Client Modal -->
+<div id="assignModal"
+    class="hidden fixed inset-0 bg-slate-950/80 backdrop-blur-sm overflow-y-auto h-full w-full flex items-center justify-center z-50">
+    <div class="bg-slate-800 p-6 rounded-2xl border border-slate-700 shadow-2xl w-96">
+        <h3 class="text-lg font-bold mb-2 text-white">Assign Activity</h3>
+        <p class="text-xs text-slate-400 mb-4 break-words" id="assignTargetText"></p>
+
+        <input type="hidden" id="assignPatternType">
+        <input type="hidden" id="assignPatternValue">
+
+        <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Select Client</label>
+        <select id="assignClientSelect"
+            class="w-full p-2.5 bg-slate-900 border border-slate-700 rounded-lg mb-4 text-white outline-none focus:border-indigo-500 text-sm">
+            <!-- Clients populated here -->
+        </select>
+
+        <div class="flex justify-end gap-3">
+            <button onclick="closeAssignModal()"
+                class="px-4 py-2 bg-slate-700 text-slate-300 rounded-lg hover:bg-slate-600 transition-colors text-sm font-bold">Cancel</button>
+            <button onclick="saveAssignment()"
+                class="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-500 transition-colors text-sm font-bold">Assign</button>
+        </div>
+    </div>
+</div>
+
+<script>
+    let clients = [];
+
+    async function fetchClients() {
+        const res = await fetch('/api/clients');
+        clients = await res.json();
+        renderClients();
+        renderClientSelect();
+    }
+
+    async function fetchUnassigned() {
+        const res = await fetch('/api/unassigned');
+        const data = await res.json();
+        renderUnassigned(data);
+    }
+
+    function renderClients() {
+        const container = document.getElementById('client-list-container');
+        container.innerHTML = clients.map(c => `
+            <div class="group bg-slate-900/40 hover:bg-slate-800/60 p-4 rounded-xl border border-slate-700/30 transition-all cursor-pointer">
+                <div class="flex justify-between items-start">
+                    <div class="flex items-center gap-3">
+                        <div class="w-8 h-8 rounded-lg bg-indigo-500/10 flex items-center justify-center text-indigo-400 group-hover:bg-indigo-500 group-hover:text-white transition-all">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                            </svg>
+                        </div>
+                        <div>
+                            <div class="font-bold text-slate-200 group-hover:text-white">${c.name}</div>
+                            <div class="text-[10px] text-slate-400 mt-0.5">${c.notes || 'No notes'}</div>
+                        </div>
+                    </div>
+                    <div class="flex items-center gap-2">
+                         <div class="px-2 py-0.5 rounded-full bg-slate-700/50 text-slate-400 text-[9px] font-bold uppercase tracking-wider">
+                             Client
+                         </div>
+                    </div>
+                </div>
+            </div>
+        `).join('');
+    }
+
+    function renderClientSelect() {
+        const select = document.getElementById('assignClientSelect');
+        select.innerHTML = clients.map(c => `<option value="${c.id}">${c.name}</option>`).join('');
+    }
+
+    function renderUnassigned(data) {
+        const tbody = document.getElementById('unassigned-body');
+        if (data.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="4" class="px-6 py-10 text-center text-slate-500">No unassigned activities found.</td></tr>';
+            return;
+        }
+        tbody.innerHTML = data.map(item => {
+            let type = 'app';
+            let value = item.app_name;
+            let display = item.app_name;
+
+            if (item.url_or_filename) {
+                type = 'url';
+                value = item.url_or_filename;
+                display = item.url_or_filename;
+            } else if (item.window_title) {
+                type = 'title';
+                value = item.window_title;
+                display = item.window_title;
+            }
+
+            return `
+            <tr class="hover:bg-slate-700/30 transition-colors">
+                <td class="px-6 py-4 text-sm font-bold text-slate-300">${item.app_name}</td>
+                <td class="px-6 py-4 text-xs text-slate-500 max-w-xs truncate" title="${display}">${display}</td>
+                <td class="px-6 py-4 text-xs text-right text-slate-400">${(item.total_duration / 60).toFixed(1)}m</td>
+                <td class="px-6 py-4 text-right">
+                    <button onclick="openAssignModal('${type}', '${value.replace(/'/g, "\\'")}')" 
+                        class="text-[10px] bg-indigo-600/20 text-indigo-400 hover:bg-indigo-600 hover:text-white px-3 py-1 rounded-full font-bold transition-all">
+                        Assign
+                    </button>
+                </td>
+            </tr>
+        `}).join('');
+    }
+
+    // --- Client Modal ---
+    function openClientModal() {
+        document.getElementById('newClientName').value = '';
+        document.getElementById('newClientNotes').value = '';
+        document.getElementById('clientModal').classList.remove('hidden');
+    }
+    function closeClientModal() {
+        document.getElementById('clientModal').classList.add('hidden');
+    }
+    async function saveClient() {
+        const name = document.getElementById('newClientName').value;
+        const notes = document.getElementById('newClientNotes').value;
+        if (!name) return;
+
+        const res = await fetch('/api/clients', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ name, notes })
+        });
+
+        if (res.ok) {
+            closeClientModal();
+            fetchClients();
+        } else {
+            alert('Error saving client');
+        }
+    }
+
+    // --- Assign Modal ---
+    function openAssignModal(type, value) {
+        document.getElementById('assignPatternType').value = type;
+        document.getElementById('assignPatternValue').value = value;
+        document.getElementById('assignTargetText').innerText = `Assign "${value}" to:`;
+        document.getElementById('assignModal').classList.remove('hidden');
+    }
+    function closeAssignModal() {
+        document.getElementById('assignModal').classList.add('hidden');
+    }
+    async function saveAssignment() {
+        const clientId = document.getElementById('assignClientSelect').value;
+        const patternType = document.getElementById('assignPatternType').value;
+        const patternValue = document.getElementById('assignPatternValue').value;
+
+        let finalValue = patternValue;
+        const zohoMatch = patternValue.match(/organization_id=(\d+)/);
+        if (zohoMatch) {
+            if (confirm(`Detected Zoho Organization ID: ${zohoMatch[1]}. Map ALL matching URLs to this client?`)) {
+                finalValue = zohoMatch[1];
+            }
+        }
+
+        const res = await fetch('/api/mappings', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                client_id: clientId,
+                pattern_type: patternType,
+                pattern_value: finalValue
+            })
+        });
+
+        if (res.ok) {
+            closeAssignModal();
+            fetchUnassigned();
+        } else {
+            alert('Error assigning client');
+        }
+    }
+
+    // Initial Load
+    fetchClients();
+    fetchUnassigned();
+
+</script>
+{% endblock %}
