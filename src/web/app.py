@@ -131,6 +131,14 @@ def team_page():
 
 # --- API ---
 
+@app.route('/api/users/list')
+def api_users_list():
+    """Returns all users for the admin member-filter dropdown."""
+    if not g.user or not g.user.get('can_see_team'):
+        return jsonify([])  # non-admins get empty list
+    users = get_all_users()
+    return jsonify([{'email': u['email'], 'name': u['name']} for u in users])
+
 @app.route('/api/activities')
 def api_activities():
     date_str = request.args.get('date')
@@ -139,10 +147,10 @@ def api_activities():
     member_filter = request.args.get('member')  # team view filter
 
     # Resolve effective user_email for filtering
-    # Admins/managers viewing a specific member pass ?member=email
+    # Admins/managers: ?member=email shows that user, ?member=all shows everyone
     current_email = g.user['email'] if g.user else None
     if member_filter and g.user and g.user.get('can_see_team'):
-        effective_email = member_filter
+        effective_email = None if member_filter == 'all' else member_filter
     else:
         effective_email = current_email
 

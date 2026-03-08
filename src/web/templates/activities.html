@@ -50,6 +50,16 @@
                         <option value="0">Uncategorized</option>
                     </select>
                 </div>
+
+                <!-- Member Filter (admin/manager only) -->
+                <div class="bg-slate-900/50 rounded-xl px-2 py-1 border border-slate-700/50" id="member-filter-wrap"
+                    style="display:none">
+                    <select id="member-filter" onchange="fetchActivities()"
+                        class="bg-transparent border-none text-xs text-slate-400 focus:ring-0 cursor-pointer pr-8">
+                        <option value="">My Logs</option>
+                        <option value="all">👥 All Users</option>
+                    </select>
+                </div>
             </div>
 
             <div class="flex items-center gap-6">
@@ -111,6 +121,7 @@
                                 class="rounded border-slate-700 bg-slate-900 text-indigo-600 focus:ring-0 focus:ring-offset-0">
                         </th>
                         <th class="px-6 py-4">Time</th>
+                        <th class="px-6 py-4" id="col-user" style="display:none">User</th>
                         <th class="px-6 py-4">App & Window</th>
                         <th class="px-6 py-4">Client</th>
                         <th class="px-6 py-4">Category</th>
@@ -180,20 +191,39 @@
         await fetchActivities();
     }
 
+    // Expose for admin user column
+    let isAdminView = false;
+
     function debounceFetch() {
         clearTimeout(debounceTimer);
         debounceTimer = setTimeout(fetchActivities, 300);
     }
 
     async function fetchMetadata() {
-        const [catRes, clientRes] = await Promise.all([
+        const [catRes, clientRes, userRes] = await Promise.all([
             fetch('/api/categories'),
-            fetch('/api/clients')
+            fetch('/api/clients'),
+            fetch('/api/users/list')
         ]);
         categories = await catRes.json();
         clients = await clientRes.json();
+        const users = await userRes.json();
 
-        // Populate selects
+        // If user list came back non-empty, this is an admin — show the member filter
+        if (users.length > 0) {
+            const wrap = document.getElementById('member-filter-wrap');
+            const sel = document.getElementById('member-filter');
+            if (wrap) wrap.style.display = '';
+            // Populate user options
+            users.forEach(u => {
+                const opt = document.createElement('option');
+                opt.value = u.email;
+                opt.textContent = `${u.name} (${u.email})`;
+                sel.appendChild(opt);
+            });
+        }
+
+        // Populate other selects
         const populateSelect = (id, list, defaultText) => {
             const select = document.getElementById(id);
             if (!select) return;
@@ -219,6 +249,12 @@
         const search = document.getElementById('search-filter').value;
         const client = document.getElementById('client-filter').value;
         const category = document.getElementById('category-filter').value;
+        const member = document.getElementById('member-filter')?.value || '';
+
+        // Show/hide the User column based on member filter
+        const showUserCol = member === 'all';
+        const colUser = document.getElementById('col-user');
+        if (colUser) colUser.style.display = showUserCol ? '' : 'none';
 
         const tbody = document.getElementById('activity-table-body');
         clearSelection();
@@ -228,6 +264,7 @@
             if (search) url += `&app=${encodeURIComponent(search)}&title=${encodeURIComponent(search)}`;
             if (client) url += `&client=${encodeURIComponent(client)}`;
             if (category) url += `&category=${encodeURIComponent(category)}`;
+            if (member) url += `&member=${encodeURIComponent(member)}`;
 
             const response = await fetch(url);
             const data = await response.json();
@@ -244,6 +281,10 @@
                 const color = cat ? cat.color : '#64748b';
                 const timeStr = act.last_timestamp ? act.last_timestamp.split(' ')[1].substring(0, 8) : (act.timestamp ? act.timestamp.split(' ')[1].substring(0, 8) : '--:--:--');
                 const duration = act.total_duration || act.duration;
+                const userEmail = act.user_email || '';
+                const userCell = showUserCol
+                    ? `<td class="px-6 py-4 text-[10px] text-slate-500 max-w-[120px] truncate" title="${userEmail}">${userEmail.split('@')[0]}</td>`
+                    : '';
 
                 const row = document.createElement('tr');
                 row.className = "hover:bg-slate-800/30 transition-colors group cursor-pointer";
@@ -259,6 +300,7 @@
                             onchange="updateSelection()" data-ids='${JSON.stringify(actIds)}'>
                     </td>
                     <td class="px-6 py-4 whitespace-nowrap text-slate-400 text-xs font-mono">${timeStr}</td>
+                    ${userCell}
                     <td class="px-6 py-4 max-w-sm">
                         <div class="text-white font-medium truncate text-sm" title="${act.app_name}">${act.app_name}</div>
                         <div class="text-slate-500 text-[10px] truncate leading-tight mt-0.5" title="${act.window_title}">${act.window_title}</div>
