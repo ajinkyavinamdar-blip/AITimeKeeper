@@ -220,7 +220,15 @@
                     <label class="text-[10px] text-slate-400 uppercase tracking-wider font-semibold">Notes
                         (optional)</label>
                     <input id="cl-notes" type="text" placeholder="e.g. Retainer client"
-                        class="mt-1 w-64 bg-slate-900/50 border border-slate-700 text-white text-sm rounded-xl px-4 py-2 outline-none focus:border-amber-500 transition-colors">
+                        class="mt-1 w-48 bg-slate-900/50 border border-slate-700 text-white text-sm rounded-xl px-4 py-2 outline-none focus:border-amber-500 transition-colors">
+                </div>
+                <div>
+                    <label class="text-[10px] text-slate-400 uppercase tracking-wider font-semibold">
+                        Zoho Org ID
+                        <span class="ml-1 text-slate-600 normal-case font-normal">— auto-maps Zoho Books activity</span>
+                    </label>
+                    <input id="cl-zoho-org-id" type="text" placeholder="e.g. 738291234"
+                        class="mt-1 w-40 bg-slate-900/50 border border-slate-700 text-white text-sm rounded-xl px-4 py-2 outline-none focus:border-amber-500 font-mono transition-colors">
                 </div>
                 <input type="hidden" id="cl-id">
                 <button onclick="saveClient()"
@@ -247,6 +255,7 @@
                         <tr class="text-[10px] uppercase tracking-wider text-slate-500 border-b border-slate-700/50">
                             <th class="px-5 py-3">Name</th>
                             <th class="px-5 py-3">Notes</th>
+                            <th class="px-5 py-3">Zoho Org ID</th>
                             <th class="px-5 py-3 text-right">Actions</th>
                         </tr>
                     </thead>
@@ -477,6 +486,11 @@
         <tr class="hover:bg-slate-700/20 transition-colors">
             <td class="px-5 py-3 font-semibold text-white">${c.name}</td>
             <td class="px-5 py-3 text-slate-400 text-xs">${c.notes || '—'}</td>
+            <td class="px-5 py-3">
+                ${c.zoho_org_id
+                ? `<span class="font-mono text-xs text-amber-400 bg-amber-500/10 border border-amber-500/20 px-2 py-0.5 rounded">${c.zoho_org_id}</span>`
+                : '<span class="text-slate-600 text-xs">—</span>'}
+            </td>
             <td class="px-5 py-3 text-right">
                 <button onclick='editClient(${JSON.stringify(c).replace(/'/g, "&#39;")}'
                     class="px-3 py-1 text-[10px] font-bold bg-slate-700 hover:bg-slate-600 text-slate-300 rounded-lg transition-colors">Edit</button>
@@ -488,6 +502,7 @@
         document.getElementById('cl-id').value = c.id;
         document.getElementById('cl-name').value = c.name;
         document.getElementById('cl-notes').value = c.notes || '';
+        document.getElementById('cl-zoho-org-id').value = c.zoho_org_id || '';
         switchTab('clients');
         document.getElementById('cl-name').focus();
     }
@@ -496,14 +511,16 @@
         document.getElementById('cl-id').value = '';
         document.getElementById('cl-name').value = '';
         document.getElementById('cl-notes').value = '';
+        document.getElementById('cl-zoho-org-id').value = '';
     }
 
     async function saveClient() {
         const id = document.getElementById('cl-id').value;
         const name = document.getElementById('cl-name').value.trim();
         const notes = document.getElementById('cl-notes').value.trim();
+        const zohoOrgId = document.getElementById('cl-zoho-org-id').value.trim();
         if (!name) { showToast('Client name is required', 'error'); return; }
-        const payload = { name, notes };
+        const payload = { name, notes, zoho_org_id: zohoOrgId };
         if (id) payload.id = parseInt(id);
         const res = await fetch('/api/clients', {
             method: 'POST',

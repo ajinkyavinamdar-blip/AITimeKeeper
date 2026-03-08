@@ -1,5 +1,24 @@
 import re
-from ..database import get_mappings
+from ..database import get_mappings, get_client_by_zoho_org_id
+
+# Zoho Books URL patterns — org ID appears right after /app/ in the path
+# e.g. https://books.zoho.in/app/738291234#/dashboard
+#      https://books.zoho.com/app/123456789/
+ZOHO_BOOK_DOMAINS = ('books.zoho.in', 'books.zoho.com', 'books.zoho.eu',
+                     'books.zoho.com.au', 'books.zoho.jp')
+ZOHO_ORG_RE = re.compile(r'/app/(\d{6,})', re.IGNORECASE)
+
+
+def extract_zoho_org_id(url: str):
+    """Extract Zoho Books organisation ID from a URL, or return None."""
+    if not url:
+        return None
+    url_lower = url.lower()
+    if not any(d in url_lower for d in ZOHO_BOOK_DOMAINS):
+        return None
+    m = ZOHO_ORG_RE.search(url)
+    return m.group(1) if m else None
+
 
 class ClientMapper:
     def __init__(self):
@@ -18,49 +37,50 @@ class ClientMapper:
         """
         Determine client based on activity details and loaded mappings.
         Priority:
-        1. URL/Filename match
+        0. Zoho Org ID (highest — precise org-level match)
+        1. URL/Filename pattern match
         2. Window Title match
         3. App Name match
         """
+        # 0. Zoho Org ID — most precise, always checked first
+        org_id = extract_zoho_org_id(url_or_filename or '')
+        if org_id:
+            client = get_client_by_zoho_org_id(org_id)
+            if client:
+                return client
+
         if not self.mappings:
             return None
 
-        # Check URL/Filename mappings
+        # 1. URL/Filename pattern match
         if url_or_filename:
             for mapping in self.mappings:
                 if mapping['pattern_type'] == 'url':
                     if mapping['pattern_value'].lower() in url_or_filename.lower():
                         return mapping['client_name']
 
-        # Check Window Title mappings
+        # 2. Window Title match
         if window_title:
             for mapping in self.mappings:
                 if mapping['pattern_type'] == 'title':
                     if mapping['pattern_value'].lower() in window_title.lower():
                         return mapping['client_name']
-        
-        # Check App Name mappings
+
+        # 3. App Name match
         if app_name:
             for mapping in self.mappings:
                 if mapping['pattern_type'] == 'app':
                     if mapping['pattern_value'].lower() in app_name.lower():
                         return mapping['client_name']
 
-        # Legacy Regex Fallback (if kept for specific hardcoded logic)
-        # "2026_Audit_[ClientName]" -> ClientName
-        if window_title:
-             match = re.search(r'2026_Audit_(\w+)', window_title, re.IGNORECASE)
-             if match:
-                 return match.group(1)
-        if url_or_filename:
-             match = re.search(r'2026_Audit_(\w+)', url_or_filename, re.IGNORECASE)
-             if match:
-                 return match.group(1)
+        # Legacy: "2026_Audit_[ClientName]" filename pattern
+        for text in (window_title, url_or_filename):
+            if text:
+                match = re.search(r'2026_Audit_(\w+)', text, re.IGNORECASE)
+                if match:
+                    return match.group(1)
 
         return None
 
     def get_client(self, filename: str) -> str:
-        # Deprecated adapter for backward compatibility if needed, 
-        # but we will update agent.py to use resolve()
         return self.resolve(None, None, filename) or "Unassigned"
-

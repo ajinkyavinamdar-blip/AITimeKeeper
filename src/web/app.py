@@ -423,12 +423,13 @@ def api_clients():
         data = request.json
         name = data.get('name')
         notes = data.get('notes', '')
+        zoho_org_id = data.get('zoho_org_id', '').strip() or None
         client_id = data.get('id')
         
         if client_id:
-            success, msg = update_client(client_id, name, notes)
+            success, msg = update_client(client_id, name, notes, zoho_org_id)
         else:
-            success, msg = add_client(name, notes)
+            success, msg = add_client(name, notes, zoho_org_id)
             
         if success:
             return jsonify({'status': 'success', 'message': msg})

@@ -47,6 +47,10 @@ def init_db():
         c.execute("ALTER TABLE clients ADD COLUMN currency TEXT DEFAULT 'USD'")
     except sqlite3.OperationalError:
         pass
+    try:
+        c.execute("ALTER TABLE clients ADD COLUMN zoho_org_id TEXT DEFAULT NULL")
+    except sqlite3.OperationalError:
+        pass  # Already exists
 
     c.execute('''
         CREATE TABLE IF NOT EXISTS client_mappings (
@@ -480,11 +484,11 @@ def get_application_activities(app_name, date_str=None):
 
 # --- Client Management Functions ---
 
-def add_client(name, notes=""):
+def add_client(name, notes="", zoho_org_id=None):
     conn = sqlite3.connect(DB_PATH)
     c = conn.cursor()
     try:
-        c.execute("INSERT INTO clients (name, notes) VALUES (?, ?)", (name, notes))
+        c.execute("INSERT INTO clients (name, notes, zoho_org_id) VALUES (?, ?, ?)", (name, notes, zoho_org_id or None))
         conn.commit()
         return True, "Client added successfully"
     except sqlite3.IntegrityError:
@@ -501,11 +505,12 @@ def get_clients():
     conn.close()
     return rows
 
-def update_client(client_id, name, notes):
+def update_client(client_id, name, notes, zoho_org_id=None):
     conn = sqlite3.connect(DB_PATH)
     c = conn.cursor()
     try:
-        c.execute("UPDATE clients SET name = ?, notes = ? WHERE id = ?", (name, notes, client_id))
+        c.execute("UPDATE clients SET name = ?, notes = ?, zoho_org_id = ? WHERE id = ?",
+                  (name, notes, zoho_org_id or None, client_id))
         conn.commit()
         return True, "Client updated successfully"
     except sqlite3.IntegrityError:
@@ -514,6 +519,18 @@ def update_client(client_id, name, notes):
         return False, str(e)
     finally:
         conn.close()
+
+def get_client_by_zoho_org_id(org_id: str):
+    """Return the client name for a given Zoho Org ID, or None."""
+    if not org_id:
+        return None
+    conn = sqlite3.connect(DB_PATH)
+    conn.row_factory = sqlite3.Row
+    c = conn.cursor()
+    c.execute("SELECT name FROM clients WHERE zoho_org_id = ?", (str(org_id).strip(),))
+    row = c.fetchone()
+    conn.close()
+    return row['name'] if row else None
 
 def add_mapping(client_id, pattern_type, pattern_value):
     conn = sqlite3.connect(DB_PATH)
