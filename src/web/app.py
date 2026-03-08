@@ -417,6 +417,9 @@ def api_application_details(app_name):
 @app.route('/api/clients', methods=['GET', 'POST'])
 def api_clients():
     if request.method == 'POST':
+        # Only admins may add/edit clients
+        if not g.user or g.user.get('role') != 'admin':
+            return jsonify({'status': 'error', 'message': 'Admin access required'}), 403
         data = request.json
         name = data.get('name')
         notes = data.get('notes', '')
@@ -432,7 +435,7 @@ def api_clients():
         else:
             return jsonify({'status': 'error', 'message': msg}), 400
             
-    # GET
+    # GET — available to all logged-in users (needed for dropdowns)
     clients = get_clients()
     return jsonify([dict(c) for c in clients])
 

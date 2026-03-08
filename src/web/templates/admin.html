@@ -19,6 +19,10 @@
             class="tab-btn px-5 py-2 text-xs font-bold rounded-xl bg-amber-600 text-white shadow-lg transition-all">
             👥 Users
         </button>
+        <button onclick="switchTab('clients')" id="tab-clients"
+            class="tab-btn px-5 py-2 text-xs font-bold rounded-xl text-slate-400 hover:text-white transition-all">
+            🏢 Clients
+        </button>
         <button onclick="switchTab('settings')" id="tab-settings"
             class="tab-btn px-5 py-2 text-xs font-bold rounded-xl text-slate-400 hover:text-white transition-all">
             ⚙️ Org Settings
@@ -197,6 +201,61 @@
             </div>
             <div id="categories-list" class="divide-y divide-slate-700/30">
                 <div class="text-center text-slate-500 text-xs py-10">Loading...</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ===== CLIENTS TAB ===== -->
+    <div id="panel-clients" class="tab-panel hidden space-y-4">
+        <!-- Add Client Form -->
+        <div class="bg-slate-800/50 rounded-2xl p-5 border border-slate-700/50 backdrop-blur-sm">
+            <h2 class="text-sm font-bold text-amber-400 uppercase tracking-wider mb-4">Add / Edit Client</h2>
+            <div class="flex flex-wrap gap-3 items-end">
+                <div>
+                    <label class="text-[10px] text-slate-400 uppercase tracking-wider font-semibold">Client Name</label>
+                    <input id="cl-name" type="text" placeholder="e.g. Acme Corp"
+                        class="mt-1 w-52 bg-slate-900/50 border border-slate-700 text-white text-sm rounded-xl px-4 py-2 outline-none focus:border-amber-500 transition-colors">
+                </div>
+                <div>
+                    <label class="text-[10px] text-slate-400 uppercase tracking-wider font-semibold">Notes
+                        (optional)</label>
+                    <input id="cl-notes" type="text" placeholder="e.g. Retainer client"
+                        class="mt-1 w-64 bg-slate-900/50 border border-slate-700 text-white text-sm rounded-xl px-4 py-2 outline-none focus:border-amber-500 transition-colors">
+                </div>
+                <input type="hidden" id="cl-id">
+                <button onclick="saveClient()"
+                    class="px-5 py-2 bg-amber-600 hover:bg-amber-500 text-white text-xs font-bold rounded-xl transition-colors">
+                    Save Client
+                </button>
+                <button onclick="clearClientForm()"
+                    class="px-5 py-2 bg-slate-700 hover:bg-slate-600 text-slate-300 text-xs font-bold rounded-xl transition-colors">
+                    Clear
+                </button>
+            </div>
+        </div>
+
+        <!-- Clients Table -->
+        <div class="bg-slate-800/50 rounded-2xl border border-slate-700/50 backdrop-blur-sm overflow-hidden">
+            <div class="p-4 border-b border-slate-700/50">
+                <h2 class="text-sm font-bold text-white">All Clients</h2>
+                <p class="text-xs text-slate-500 mt-0.5">Only admins can add or edit clients — users select from this
+                    list when categorising logs</p>
+            </div>
+            <div class="overflow-x-auto">
+                <table class="w-full text-left text-sm">
+                    <thead>
+                        <tr class="text-[10px] uppercase tracking-wider text-slate-500 border-b border-slate-700/50">
+                            <th class="px-5 py-3">Name</th>
+                            <th class="px-5 py-3">Notes</th>
+                            <th class="px-5 py-3 text-right">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="clients-table-body" class="divide-y divide-slate-700/30">
+                        <tr>
+                            <td colspan="3" class="text-center text-slate-500 text-xs py-10">Loading...</td>
+                        </tr>
+                    </tbody>
+                </table>
             </div>
         </div>
     </div>
@@ -399,9 +458,72 @@
         if (res.ok) showToast('Color updated');
     }
 
+    // ─── Clients ─────────────────────────────────────────────────────────────────────
+    let allClients = [];
+
+    async function loadClients() {
+        const res = await fetch('/api/clients');
+        allClients = await res.json();
+        renderClientsTable();
+    }
+
+    function renderClientsTable() {
+        const tbody = document.getElementById('clients-table-body');
+        if (!allClients.length) {
+            tbody.innerHTML = '<tr><td colspan="3" class="text-center text-slate-500 text-xs py-10">No clients yet. Add one above.</td></tr>';
+            return;
+        }
+        tbody.innerHTML = allClients.map(c => `
+        <tr class="hover:bg-slate-700/20 transition-colors">
+            <td class="px-5 py-3 font-semibold text-white">${c.name}</td>
+            <td class="px-5 py-3 text-slate-400 text-xs">${c.notes || '—'}</td>
+            <td class="px-5 py-3 text-right">
+                <button onclick='editClient(${JSON.stringify(c).replace(/'/g, "&#39;")}'
+                    class="px-3 py-1 text-[10px] font-bold bg-slate-700 hover:bg-slate-600 text-slate-300 rounded-lg transition-colors">Edit</button>
+            </td>
+        </tr>`).join('');
+    }
+
+    function editClient(c) {
+        document.getElementById('cl-id').value = c.id;
+        document.getElementById('cl-name').value = c.name;
+        document.getElementById('cl-notes').value = c.notes || '';
+        switchTab('clients');
+        document.getElementById('cl-name').focus();
+    }
+
+    function clearClientForm() {
+        document.getElementById('cl-id').value = '';
+        document.getElementById('cl-name').value = '';
+        document.getElementById('cl-notes').value = '';
+    }
+
+    async function saveClient() {
+        const id = document.getElementById('cl-id').value;
+        const name = document.getElementById('cl-name').value.trim();
+        const notes = document.getElementById('cl-notes').value.trim();
+        if (!name) { showToast('Client name is required', 'error'); return; }
+        const payload = { name, notes };
+        if (id) payload.id = parseInt(id);
+        const res = await fetch('/api/clients', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+        const data = await res.json();
+        if (res.ok && data.status === 'success') {
+            showToast(id ? 'Client updated' : 'Client added');
+            clearClientForm();
+            loadClients();
+        } else {
+            showToast(data.message || 'Error saving client', 'error');
+        }
+    }
+
     // ─── Init ─────────────────────────────────────────────────────────────────────
     loadUsers();
     loadSettings();
     loadCategories();
+    loadClients();
 </script>
 {% endblock %}
