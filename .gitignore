@@ -16,7 +16,7 @@ data/
 # Build artifacts
 dist/
 build/
-*.spec
+!agent_client/AITimeKeeper.spec
 agent_client/dist/
 agent_client/build/
 
