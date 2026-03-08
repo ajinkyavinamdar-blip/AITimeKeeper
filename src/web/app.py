@@ -24,6 +24,8 @@ from ..db_extensions import (
     get_current_session_info, bulk_update_activities,
     get_team_summary, get_member_detail
 )
+from ..skills.category_mapper import CategoryMapper
+from ..skills.client_mapper import ClientMapper
 
 app = Flask(__name__)
 app.secret_key = os.environ.get('SECRET_KEY', 'dev_key_change_in_production')
@@ -33,6 +35,25 @@ try:
     init_db()
 except Exception as e:
     print(f'[startup] init_db failed: {e}')
+
+# ── Auto-categorisation mappers (lazily reloaded on first ingest call) ──────────
+_category_mapper = None
+_client_mapper = None
+
+def _get_mappers():
+    """Return (category_mapper, client_mapper), re-instantiating to pick up DB rule changes."""
+    global _category_mapper, _client_mapper
+    if _category_mapper is None:
+        _category_mapper = CategoryMapper()
+    if _client_mapper is None:
+        _client_mapper = ClientMapper()
+    return _category_mapper, _client_mapper
+
+def _reload_mappers():
+    """Force-reload both mappers so admin rule changes take effect immediately."""
+    global _category_mapper, _client_mapper
+    _category_mapper = CategoryMapper()
+    _client_mapper = ClientMapper()
 
 @app.before_request
 def load_logged_in_user():
@@ -524,8 +545,32 @@ def api_ingest():
         return jsonify({'error': 'logs must be a list'}), 400
 
     accepted = 0
+    cat_mapper, cli_mapper = _get_mappers()
+
     for entry in logs:
         try:
+            app_name    = entry.get('app_name', '')
+            window_title = entry.get('window_title', '')
+            url         = entry.get('url_or_filename', '')
+
+            # ── Client resolution (Zoho Org ID → pattern rules → existing value) ──
+            if not entry.get('client') or entry.get('client') == 'Unassigned':
+                try:
+                    resolved_client = cli_mapper.resolve(app_name, window_title, url)
+                    if resolved_client:
+                        entry['client'] = resolved_client
+                except Exception as ce:
+                    print(f'[ingest] client_mapper error: {ce}')
+
+            # ── Category resolution (rules → heuristics → AI fallback) ────────────
+            if not entry.get('category_id'):
+                try:
+                    _, cat_id = cat_mapper.resolve(app_name, window_title, url)
+                    if cat_id:
+                        entry['category_id'] = cat_id
+                except Exception as ce:
+                    print(f'[ingest] category_mapper error: {ce}')
+
             entry['user_email'] = user_email
             log_activity(entry)
             accepted += 1
