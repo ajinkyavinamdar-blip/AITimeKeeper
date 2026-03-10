@@ -12,7 +12,12 @@
                 try {
                     const res = await fetch(`/api/control/${action}`, { method: 'POST' });
                     const data = await res.json();
-                    updateGlobalStatus(data.status);
+                    if (data.error) {
+                        alert(data.error);
+                    }
+                    if (data.status) {
+                        updateGlobalStatus(data.status);
+                    }
 
                     // If on dashboard, refresh stats to update local buttons too
                     if (window.fetchStats) window.fetchStats();

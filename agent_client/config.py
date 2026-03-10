@@ -30,13 +30,40 @@ def is_configured(cfg: dict) -> bool:
     return all(cfg.get(k) for k in ("server_url", "user_email", "api_token"))
 
 
+def _gui_prompt(title, prompt_text, default=""):
+    import sys
+    import platform
+    if sys.stdin and sys.stdin.isatty():
+        return input(f"{prompt_text} ").strip()
+        
+    if platform.system() == "Darwin":
+        import subprocess
+        script = f'''
+        tell app "System Events"
+            activate
+            set dialogResult to display dialog "{prompt_text}" with title "{title}" default answer "{default}"
+            return text returned of dialogResult
+        end tell
+        '''
+        try:
+            return subprocess.check_output(['osascript', '-e', script], text=True).strip()
+        except Exception:
+            return ""
+    return ""
+
+
 def first_run_setup():
     """Interactive first-run: asks user for details, fetches API token."""
     import requests
 
     print("\n=== AI TimeKeeper — First Run Setup ===")
-    server_url = input("Server URL (e.g. https://your-app.onrender.com): ").strip().rstrip("/")
-    user_email = input("Your work email: ").strip()
+    server_url = _gui_prompt("AI TimeKeeper Setup", "Server URL (e.g. https://your-app.onrender.com):", "https://aitimekeeper.onrender.com").rstrip("/")
+    if not server_url:
+        raise ValueError("Setup cancelled.")
+        
+    user_email = _gui_prompt("AI TimeKeeper Setup", "Your work email:")
+    if not user_email:
+        raise ValueError("Setup cancelled.")
 
     print(f"\nFetching your API token from {server_url} ...")
     try:
@@ -53,7 +80,9 @@ def first_run_setup():
         print("Token received. Saving config...")
     except Exception as e:
         print(f"Could not fetch token automatically: {e}")
-        api_token = input("Paste your API token manually (from Dashboard → My Token): ").strip()
+        api_token = _gui_prompt("AI TimeKeeper Setup", "Could not fetch token. Paste your API token manually (from Dashboard -> My Token):")
+        if not api_token:
+            raise ValueError("Setup cancelled.")
 
     cfg = {"server_url": server_url, "user_email": user_email, "api_token": api_token}
     save(cfg)

@@ -488,10 +488,39 @@ agent_ref = None
 
 @app.route('/api/status')
 def api_status():
-    status = agent_ref.get_status() if agent_ref else 'unknown'
     date_str = request.args.get('date')
     session_start = get_current_session_info(date_str)
-    
+
+    # Determine tracking status:
+    # 1. If a local agent_ref is available, use its status
+    # 2. Otherwise, detect from recent log activity for this user
+    status = 'unknown'
+    if agent_ref:
+        status = agent_ref.get_status()
+    else:
+        # Cloud mode — check if logs arrived in the last 2 minutes
+        user_email = session.get('user_id')
+        if user_email:
+            import sqlite3
+            from ..database import DB_PATH
+            try:
+                conn = sqlite3.connect(DB_PATH)
+                conn.row_factory = sqlite3.Row
+                c = conn.cursor()
+                
+                # Use server_timestamp (UTC) to check if logs arrived in the last 2 minutes
+                two_min_ago = (datetime.datetime.utcnow() - datetime.timedelta(minutes=2)).strftime('%Y-%m-%d %H:%M:%S')
+                c.execute('''
+                    SELECT COUNT(*) as cnt FROM activities 
+                    WHERE user_email = ? COLLATE NOCASE AND server_timestamp >= ?
+                ''', (user_email, two_min_ago))
+                row = c.fetchone()
+                conn.close()
+                status = 'running' if row and row['cnt'] > 0 else 'stopped'
+            except Exception as e:
+                print(f'[status] error checking recent logs: {e}')
+                status = 'unknown'
+
     return jsonify({
         'status': status,
         'session_start': session_start,
@@ -501,7 +530,7 @@ def api_status():
 @app.route('/api/control/<action>', methods=['POST'])
 def api_control(action):
     if not agent_ref:
-         return jsonify({'error': 'Agent not initialized'}), 500
+         return jsonify({'error': 'You are currently viewing the online cloud dashboard. To pause or resume your time tracking, please use the AI TimeKeeper icon in your computers system tray.', 'status': 'running'}), 400
          
     if action == 'pause':
         agent_ref.pause()

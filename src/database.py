@@ -103,6 +103,12 @@ def init_db():
     except sqlite3.OperationalError:
         pass  # Already exists
 
+    # Add server_timestamp to activities for accurate cloud heartbeat
+    try:
+        c.execute("ALTER TABLE activities ADD COLUMN server_timestamp TEXT DEFAULT CURRENT_TIMESTAMP")
+    except sqlite3.OperationalError:
+        pass  # Already exists
+
     # --- API Tokens Table (for desktop agent authentication) ---
     c.execute('''
         CREATE TABLE IF NOT EXISTS api_tokens (

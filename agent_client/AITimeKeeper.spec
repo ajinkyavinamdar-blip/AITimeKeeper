@@ -39,7 +39,7 @@ exe = EXE(
     upx=False,
     upx_exclude=[],
     runtime_tmpdir=None,
-    console=True,   # keep True so first-run prompts work in Terminal
+    console=False,   # macOS apps must have console=False to open properly from Finder
     disable_windowed_traceback=False,
     argv_emulation=False,
     target_arch=None,
