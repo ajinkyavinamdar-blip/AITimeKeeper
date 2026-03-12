@@ -501,22 +501,24 @@ def api_status():
         # Cloud mode — check if logs arrived in the last 2 minutes
         user_email = session.get('user_id')
         if user_email:
-            import sqlite3
-            from ..database import DB_PATH
+            import psycopg2
+            from psycopg2.extras import RealDictCursor
+            from ..database import get_db_connection
             try:
-                conn = sqlite3.connect(DB_PATH)
-                conn.row_factory = sqlite3.Row
-                c = conn.cursor()
-                
-                # Use server_timestamp (UTC) to check if logs arrived in the last 2 minutes
-                two_min_ago = (datetime.datetime.utcnow() - datetime.timedelta(minutes=2)).strftime('%Y-%m-%d %H:%M:%S')
-                c.execute('''
-                    SELECT COUNT(*) as cnt FROM activities 
-                    WHERE user_email = ? COLLATE NOCASE AND server_timestamp >= ?
-                ''', (user_email, two_min_ago))
-                row = c.fetchone()
-                conn.close()
-                status = 'running' if row and row['cnt'] > 0 else 'stopped'
+                conn = get_db_connection()
+                try:
+                    c = conn.cursor(cursor_factory=RealDictCursor)
+                    
+                    # Use server_timestamp (UTC) to check if logs arrived in the last 2 minutes
+                    two_min_ago = (datetime.datetime.utcnow() - datetime.timedelta(minutes=2)).strftime('%Y-%m-%d %H:%M:%S')
+                    c.execute('''
+                        SELECT COUNT(*) as cnt FROM activities 
+                        WHERE LOWER(user_email) = LOWER(%s) AND server_timestamp >= %s
+                    ''', (user_email, two_min_ago))
+                    row = c.fetchone()
+                    status = 'running' if row and row['cnt'] > 0 else 'stopped'
+                finally:
+                    conn.close()
             except Exception as e:
                 print(f'[status] error checking recent logs: {e}')
                 status = 'unknown'
