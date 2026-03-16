@@ -107,25 +107,44 @@ class CategoryMapper:
         ]):
             return _h("Operations")
         if is_browser and any(k in combined for k in [
-            "zoho.com", "quickbooks.intuit", "tallysolutions", "xero.com",
+            # Zoho (global + India)
+            "zoho.com", "zoho.in",
+            # Accounting / ERP
+            "quickbooks.intuit", "tallysolutions", "tallyprime.com", "xero.com",
             "sheets.google", "office.com/excel", "freshbooks.com",
             "sage.com", "myob.com", "wave.com", "freeagent.com",
             "kashoo.com", "zetran.com", "dext.com", "hubdoc.com",
-            "bill.com", "melio.com", "ramp.com", "brex.com",
             "netsuite.com", "sap.com", "oracle.com/financials",
-            "workday.com", "expensify.com", "concur.com",
+            "workday.com", "busy.in",
+            # Expense / AP-AR
+            "bill.com", "melio.com", "ramp.com", "brex.com",
+            "expensify.com", "concur.com",
+            "happay.com", "fyle.in", "zaggle.in",
+            # Payroll — global + India
             "gusto.com", "rippling.com", "adp.com", "paychex.com",
             "paylocity.com", "paycom.com",
+            "greythr.com", "keka.com", "darwinbox.com", "sumhr.com",
+            # Tax — India
+            "gst.gov.in", "incometax.gov.in", "mca.gov.in",
+            "tdscpc.gov.in", "traces.gov.in", "einvoice.gst.gov.in",
+            "cleartax.in", "taxbuddy.com", "winman.in", "saral.pro",
+            "tdsman.com", "mastersindia.co",
+            # Tax — Global
+            "irs.gov", "hmrc.gov.uk",
             "taxjar.com", "avalara.com", "vertex.com",
-            "stripe.com/dashboard", "paypal.com/merchant",
-            "gocardless.com", "razorpay.com",
             "caseware.com", "wolterskluwer.com",
             "thomsonreuters.com/tax", "cch.com",
+            # Practice Management
             "karbon.com", "canopy.com", "jetpackworkflow.com",
             "practiceics.com", "taxdome.com",
             "ignitionapp.com", "proposify.com",
-            "gst.gov.in", "incometax.gov.in", "irs.gov",
-            "hmrc.gov.uk",
+            # Payments — global + India
+            "stripe.com/dashboard", "paypal.com/merchant",
+            "gocardless.com", "razorpay.com",
+            "paytm.com", "phonepe.com", "cashfree.com", "instamojo.com",
+            # Indian banking
+            "onlinesbi.sbi", "hdfcbank.com", "icicibank.com",
+            "axisbank.com", "kotak.com", "yesbank.in", "idfcfirstbank.com",
         ]):
             return _h("Operations")
 

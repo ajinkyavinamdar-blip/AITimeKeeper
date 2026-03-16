@@ -1,20 +1,24 @@
 import re
 from ..database import get_mappings, get_client_by_zoho_org_id
 
-# Zoho Books URL patterns — org ID appears right after /app/ in the path
+# Zoho URL patterns — org ID appears right after /app/ in the path
 # e.g. https://books.zoho.in/app/738291234#/dashboard
-#      https://books.zoho.com/app/123456789/
-ZOHO_BOOK_DOMAINS = ('books.zoho.in', 'books.zoho.com', 'books.zoho.eu',
-                     'books.zoho.com.au', 'books.zoho.jp')
+#      https://invoice.zoho.com/app/123456789/
+# Covers all Zoho products across all regional TLDs (.com, .in, .eu, .com.au, .jp)
+_ZOHO_PRODUCTS = ('books', 'invoice', 'expense', 'payroll', 'people',
+                  'inventory', 'subscriptions', 'practice', 'billing',
+                  'crm', 'sign')
+_ZOHO_TLDS = ('.zoho.com', '.zoho.in', '.zoho.eu', '.zoho.com.au', '.zoho.jp')
+ZOHO_DOMAINS = tuple(f'{p}{t}' for p in _ZOHO_PRODUCTS for t in _ZOHO_TLDS)
 ZOHO_ORG_RE = re.compile(r'/app/(\d{6,})', re.IGNORECASE)
 
 
 def extract_zoho_org_id(url: str):
-    """Extract Zoho Books organisation ID from a URL, or return None."""
+    """Extract Zoho organisation ID from any Zoho product URL, or return None."""
     if not url:
         return None
     url_lower = url.lower()
-    if not any(d in url_lower for d in ZOHO_BOOK_DOMAINS):
+    if not any(d in url_lower for d in ZOHO_DOMAINS):
         return None
     m = ZOHO_ORG_RE.search(url)
     return m.group(1) if m else None
