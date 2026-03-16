@@ -140,26 +140,136 @@ def init_db():
             token = secrets.token_hex(32)
             c.execute("INSERT INTO api_tokens (token, user_email) VALUES (%s, %s)", (token, SEED_ADMIN_EMAIL))
 
-        # Seed Categories — always upsert so new defaults are added on redeploy
+        # ── Category migrations (schema evolution) ──────────────────────────
         import psycopg2.extras
+
+        # Rename Documents → Documentation
+        c.execute("UPDATE categories SET name='Documentation' WHERE name='Documents'")
+
+        # Remove Code (reassign activities → Tech Development) and Design (→ null)
+        c.execute("""
+            UPDATE activities SET category_id=(SELECT id FROM categories WHERE name='Tech Development' LIMIT 1)
+            WHERE category_id=(SELECT id FROM categories WHERE name='Code' LIMIT 1)
+        """)
+        c.execute("DELETE FROM category_mappings WHERE category_id=(SELECT id FROM categories WHERE name='Code' LIMIT 1)")
+        c.execute("DELETE FROM categories WHERE name='Code'")
+
+        c.execute("UPDATE activities SET category_id=NULL WHERE category_id=(SELECT id FROM categories WHERE name='Design' LIMIT 1)")
+        c.execute("DELETE FROM category_mappings WHERE category_id=(SELECT id FROM categories WHERE name='Design' LIMIT 1)")
+        c.execute("DELETE FROM categories WHERE name='Design'")
+
+        # Merge Communication → Collaboration (reassign activities + mappings, then drop)
+        c.execute("""
+            UPDATE activities SET category_id=(SELECT id FROM categories WHERE name='Collaboration' LIMIT 1)
+            WHERE category_id=(SELECT id FROM categories WHERE name='Communication' LIMIT 1)
+        """)
+        c.execute("""
+            UPDATE category_mappings SET category_id=(SELECT id FROM categories WHERE name='Collaboration' LIMIT 1)
+            WHERE category_id=(SELECT id FROM categories WHERE name='Communication' LIMIT 1)
+        """)
+        c.execute("DELETE FROM categories WHERE name='Communication'")
+
+        # ── Seed / refresh categories ─────────────────────────────────────────
         defaults = [
-            ('Code',             True,  False, '#8B5CF6'),
-            ('Browsing',         False, True,  '#F59E0B'),
-            ('Design',           True,  False, '#EC4899'),
-            ('Admin',            False, False, '#9CA3AF'),
-            ('Operations',       True,  False, '#0D9488'),
-            ('Documents',        True,  False, '#0EA5E9'),
-            ('Tech Development', True,  False, '#4F46E5'),
-            ('Collaboration',    False, False, '#059669'),
-            ('Communication',    False, False, '#06B6D4'),   # Outlook, Teams, Zoom
-            ('Social Media',     False, True,  '#D946EF'),
-            ('AI',               True,  False, '#8B5CF6'),
+            ('Browsing',         False, True,  '#F59E0B'),  # Distraction — generic web
+            ('Admin',            False, False, '#9CA3AF'),  # Neutral — Calendar, Settings
+            ('Operations',       True,  False, '#0D9488'),  # Focus — Zoho, Excel, Finance
+            ('Documentation',    True,  False, '#0EA5E9'),  # Focus — Word, PDFs, Notes
+            ('Tech Development', True,  False, '#4F46E5'),  # Focus — IDE, Terminal, GitHub
+            ('Collaboration',    False, False, '#059669'),  # Meetings — Outlook, Teams, Zoom
+            ('Social Media',     False, True,  '#D946EF'),  # Distraction — Facebook, Twitter
+            ('AI',               True,  False, '#8B5CF6'),  # Focus — Claude, ChatGPT
+            ('Research',         True,  False, '#0891B2'),  # Focus — Scholar, Wikipedia, news
+            ('Self Improvement', True,  False, '#F97316'),  # Focus — Coursera, Udemy, books
         ]
         psycopg2.extras.execute_batch(
             c,
             "INSERT INTO categories (name, is_focus, is_distraction, color) VALUES (%s, %s, %s, %s) ON CONFLICT (name) DO NOTHING",
             defaults
         )
+
+        # ── Seed default category mappings (URL / app / title patterns) ───────
+        c.execute("SELECT COUNT(*) FROM category_mappings")
+        if c.fetchone()[0] == 0:
+            c.execute("SELECT id, name FROM categories")
+            cat_id = {row['name']: row['id'] for row in c.fetchall()}
+
+            url_mappings = [
+                # Social Media
+                ('Social Media', 'url', 'facebook.com'),
+                ('Social Media', 'url', 'instagram.com'),
+                ('Social Media', 'url', 'twitter.com'),
+                ('Social Media', 'url', 'x.com'),
+                ('Social Media', 'url', 'linkedin.com'),
+                ('Social Media', 'url', 'youtube.com'),
+                ('Social Media', 'url', 'reddit.com'),
+                ('Social Media', 'url', 'tiktok.com'),
+                ('Social Media', 'url', 'netflix.com'),
+                ('Social Media', 'url', 'primevideo.com'),
+                # Collaboration / Meetings
+                ('Collaboration', 'url', 'teams.microsoft.com'),
+                ('Collaboration', 'url', 'zoom.us'),
+                ('Collaboration', 'url', 'meet.google.com'),
+                ('Collaboration', 'url', 'mail.google.com'),
+                ('Collaboration', 'url', 'outlook.live.com'),
+                ('Collaboration', 'url', 'outlook.office.com'),
+                ('Collaboration', 'app', 'Microsoft Teams'),
+                ('Collaboration', 'app', 'Zoom'),
+                ('Collaboration', 'app', 'Microsoft Outlook'),
+                ('Collaboration', 'app', 'Slack'),
+                # Operations / Finance
+                ('Operations', 'url', 'zoho.com'),
+                ('Operations', 'url', 'books.zoho.com'),
+                ('Operations', 'url', 'crm.zoho.com'),
+                ('Operations', 'url', 'quickbooks.intuit.com'),
+                ('Operations', 'url', 'tallysolutions.com'),
+                ('Operations', 'url', 'xero.com'),
+                ('Operations', 'app', 'Microsoft Excel'),
+                ('Operations', 'app', 'Numbers'),
+                # AI Tools
+                ('AI', 'url', 'claude.ai'),
+                ('AI', 'url', 'chat.openai.com'),
+                ('AI', 'url', 'gemini.google.com'),
+                ('AI', 'url', 'perplexity.ai'),
+                ('AI', 'url', 'notebooklm.google.com'),
+                # Tech Development
+                ('Tech Development', 'url', 'github.com'),
+                ('Tech Development', 'url', 'stackoverflow.com'),
+                ('Tech Development', 'url', 'localhost'),
+                ('Tech Development', 'url', '127.0.0.1'),
+                ('Tech Development', 'app', 'Visual Studio Code'),
+                ('Tech Development', 'app', 'Code'),
+                ('Tech Development', 'app', 'Terminal'),
+                ('Tech Development', 'app', 'iTerm2'),
+                ('Tech Development', 'app', 'Xcode'),
+                # Research
+                ('Research', 'url', 'scholar.google.com'),
+                ('Research', 'url', 'wikipedia.org'),
+                ('Research', 'url', 'news.google.com'),
+                ('Research', 'url', 'medium.com'),
+                ('Research', 'url', 'substack.com'),
+                # Self Improvement
+                ('Self Improvement', 'url', 'coursera.org'),
+                ('Self Improvement', 'url', 'udemy.com'),
+                ('Self Improvement', 'url', 'linkedin.com/learning'),
+                ('Self Improvement', 'url', 'skillshare.com'),
+                ('Self Improvement', 'url', 'khanacademy.org'),
+                ('Self Improvement', 'url', 'audible.com'),
+                # Documentation
+                ('Documentation', 'app', 'Microsoft Word'),
+                ('Documentation', 'app', 'Pages'),
+                ('Documentation', 'app', 'Notion'),
+                ('Documentation', 'url', 'notion.so'),
+                ('Documentation', 'url', 'docs.google.com'),
+                ('Documentation', 'url', 'confluence'),
+            ]
+
+            rows = [(cat_id[cn], pt, pv) for cn, pt, pv in url_mappings if cn in cat_id]
+            psycopg2.extras.execute_batch(
+                c,
+                "INSERT INTO category_mappings (category_id, pattern_type, pattern_value) VALUES (%s, %s, %s)",
+                rows
+            )
 
         conn.commit()
     except Exception as e:

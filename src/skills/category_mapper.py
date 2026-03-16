@@ -48,51 +48,78 @@ class CategoryMapper:
                     if mapping['pattern_value'].lower() in app_name.lower():
                         return mapping['category_name'], mapping['category_id']
 
-        # Heuristic Defaults
+        # ── Heuristic fallbacks (run when no DB rule matched) ─────────────────
         app_lower = (app_name or "").lower()
         title_lower = (window_title or "").lower()
         url_lower = (url_or_filename or "").lower()
-        
-        # Combine title and URL for browser-specific smart detection
-        combined_context = f"{title_lower} {url_lower}"
+        combined = f"{title_lower} {url_lower}"
         is_browser = any(b in app_lower for b in ["chrome", "safari", "firefox", "browser", "edge"])
 
-        # 1. Tech Development
-        if "code" in app_lower or "studio" in app_lower or "terminal" in app_lower or "iterm" in app_lower:
-             return "Tech Development", None
-        if is_browser and any(k in combined_context for k in ["github", "stackoverflow", "docs.", "localhost", "127.0.0.1", "console"]):
-             return "Tech Development", None
-
-        # 2. Collaboration
-        if any(k in app_lower for k in ["zoom", "meet", "teams", "slack", "discord", "outlook", "whatsapp"]):
-             return "Collaboration", None
-        if is_browser and any(k in combined_context for k in ["slack", "teams.microsoft", "meet.google", "zoom.us", "mail.google", "outlook"]):
-             return "Collaboration", None
-
-        # 3. AI
+        # 1. AI tools
         if any(k in app_lower for k in ["chatgpt", "gemini", "claude", "notebooklm", "perplex"]):
-             return "AI", None
-        if is_browser and any(k in combined_context for k in ["chat.openai", "gemini.google", "claude.ai"]):
-             return "AI", None
+            return "AI", None
+        if is_browser and any(k in combined for k in ["chat.openai", "gemini.google", "claude.ai", "perplexity.ai", "notebooklm"]):
+            return "AI", None
 
-        # 4. Social Media & Entertainment
-        if any(k in app_lower for k in ["facebook", "linkedin", "instagram", "twitter", "x.com", "pinterest", "reddit", "youtube", "netflix", "prime video", "hulu", "disney+", "twitch", "tiktok"]):
-             return "Social Media", None
-        if is_browser and any(k in combined_context for k in ["facebook.com", "linkedin.com", "instagram.com", "twitter.com", "x.com", "reddit.com", "youtube.com", "netflix.com", "primevideo.com", "hulu.com", "disneyplus.com", "twitch.tv", "tiktok.com"]):
-             return "Social Media", None
+        # 2. Social Media & Entertainment (URL-first — almost all are browser-only)
+        if is_browser and any(k in combined for k in [
+            "facebook.com", "instagram.com", "twitter.com", "x.com", "linkedin.com",
+            "youtube.com", "reddit.com", "tiktok.com", "netflix.com", "primevideo.com",
+            "hulu.com", "disneyplus.com", "twitch.tv", "pinterest.com",
+        ]):
+            return "Social Media", None
+        if any(k in app_lower for k in ["facebook", "instagram", "twitter", "youtube", "netflix", "twitch"]):
+            return "Social Media", None
 
-        # 5. Operations
-        if any(k in app_lower for k in ["zoho", "quickbooks", "tally", "xero", "excel", "word", "powerpoint", "sheets", "docs"]):
-             return "Operations", None
-        if is_browser and any(k in combined_context for k in ["zoho.com", "quickbooks.intuit", "tallysolutions", "office.com", "docs.google", "sheets.google"]):
-             return "Operations", None
+        # 3. Collaboration / Meetings
+        if any(k in app_lower for k in ["zoom", "teams", "slack", "outlook", "discord", "whatsapp", "webex"]):
+            return "Collaboration", None
+        if is_browser and any(k in combined for k in [
+            "teams.microsoft", "zoom.us", "meet.google", "mail.google",
+            "outlook.live", "outlook.office", "slack.com",
+        ]):
+            return "Collaboration", None
 
-        # 6. Fallback for Browsers
+        # 4. Operations / Finance
+        if any(k in app_lower for k in ["zoho", "quickbooks", "tally", "xero", "excel", "numbers"]):
+            return "Operations", None
+        if is_browser and any(k in combined for k in [
+            "zoho.com", "quickbooks.intuit", "tallysolutions", "xero.com",
+            "sheets.google", "office.com/excel",
+        ]):
+            return "Operations", None
+
+        # 5. Research
+        if is_browser and any(k in combined for k in [
+            "scholar.google", "wikipedia.org", "medium.com", "substack.com",
+            "news.google", "arxiv.org", "pubmed",
+        ]):
+            return "Research", None
+
+        # 6. Self Improvement
+        if is_browser and any(k in combined for k in [
+            "coursera.org", "udemy.com", "linkedin.com/learning",
+            "skillshare.com", "khanacademy.org", "audible.com",
+        ]):
+            return "Self Improvement", None
+
+        # 7. Tech Development
+        if any(k in app_lower for k in ["code", "studio", "terminal", "iterm", "xcode", "cursor", "windsurf"]):
+            return "Tech Development", None
+        if is_browser and any(k in combined for k in ["github.com", "stackoverflow.com", "localhost", "127.0.0.1"]):
+            return "Tech Development", None
+
+        # 8. Documentation
+        if any(k in app_lower for k in ["word", "pages", "notion", "obsidian", "bear", "typora"]):
+            return "Documentation", None
+        if is_browser and any(k in combined for k in ["notion.so", "docs.google.com", "confluence"]):
+            return "Documentation", None
+
+        # 9. Generic browser fallback
         if is_browser:
-             return "Browsing", None
+            return "Browsing", None
 
-        # 7. AI Fallback (Gemini)
-        # Attempt AI mapping if heuristics fail
+        # 10. AI fallback (Gemini) for anything not matched by heuristics
         ai_suggestion, ai_cat_id = self.ai_mapper.suggest_category(app_name, window_title, url_or_filename)
         if ai_suggestion and ai_suggestion != "Uncategorized":
             return ai_suggestion, ai_cat_id
