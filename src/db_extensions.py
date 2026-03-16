@@ -388,9 +388,11 @@ def get_score_stats(date_str=None):
         
         rows = [dict(r) for r in c.fetchall()]
         
-        c.execute("SELECT MIN(timestamp) FROM activities WHERE timestamp >= %s AND timestamp <= %s", (start_time, end_time))
-        first_activity_ts = c.fetchone()['min']
-        
+        c.execute("SELECT MIN(timestamp), MAX(timestamp) FROM activities WHERE timestamp >= %s AND timestamp <= %s", (start_time, end_time))
+        ts_row = c.fetchone()
+        first_activity_ts = ts_row['min']
+        last_activity_ts = ts_row['max']
+
         if not rows or not first_activity_ts:
             return {
                 'focus': {'time': 0, 'pct': 0},
@@ -398,10 +400,12 @@ def get_score_stats(date_str=None):
                 'break': {'time': 0, 'pct': 0},
                 'total_elapsed': 0
             }
-            
+
         start_dt = datetime.datetime.strptime(first_activity_ts[:19], '%Y-%m-%d %H:%M:%S')
-        now_dt = datetime.datetime.now()
-        total_elapsed = (now_dt - start_dt).total_seconds()
+        end_dt = datetime.datetime.strptime(last_activity_ts[:19], '%Y-%m-%d %H:%M:%S')
+        # Use span from first to last activity (+ last poll interval) to avoid
+        # timezone issues when the server clock (UTC) differs from agent timestamps.
+        total_elapsed = (end_dt - start_dt).total_seconds() + 5
         
         focus_time = 0
         meeting_time = 0

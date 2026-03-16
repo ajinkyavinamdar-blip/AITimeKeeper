@@ -578,26 +578,18 @@
             const dateStr = getCurrentDateStr();
             const query = `?date=${dateStr}&view=${viewMode}`;
 
-            // Parallel Fetch
-            const [activitiesRes, focusRes, workRes, summaryRes, blocksRes, statusRes, scoresRes, timelineRes] = await Promise.all([
-                fetch(`/api/activities${query}&aggregated=true`),
-                fetch(`/api/focus_stats${query}`),
-                fetch(`/api/work_stats${query}`),
-                fetch(`/api/summary${query}`),
-                fetch(`/api/work_blocks${query}`),
-                fetch(`/api/status${query}`),
-                fetch(`/api/scores${query}`),
-                fetch(`/api/timeline${query}`)
-            ]);
+            // Single combined fetch — all data in one request
+            const res = await fetch(`/api/dashboard${query}`);
+            const data = await res.json();
 
-            const activities = await activitiesRes.json();
-            const focusStats = await focusRes.json();
-            const workStats = await workRes.json();
-            const summaryStats = await summaryRes.json();
-            const workBlocks = await blocksRes.json();
-            const statusData = await statusRes.json();
-            const scoresData = await scoresRes.json();
-            const timelineData = await timelineRes.json();
+            const activities = data.activities;
+            const focusStats = data.focus_stats;
+            const workStats = data.work_stats;
+            const summaryStats = data.summary;
+            const workBlocks = data.work_blocks;
+            const statusData = data.status;
+            const scoresData = data.scores;
+            const timelineData = data.timeline;
 
             // Sync Date UI
             const todayLabel = document.getElementById('day-label-text');

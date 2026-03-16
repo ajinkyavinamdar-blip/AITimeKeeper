@@ -163,6 +163,125 @@ def api_users_list():
     users = get_all_users()
     return jsonify([{'email': u['email'], 'name': u['name']} for u in users])
 
+@app.route('/api/dashboard')
+def api_dashboard():
+    """Combined endpoint — returns all dashboard data in one request."""
+    import concurrent.futures
+    date_str = request.args.get('date')
+    view = request.args.get('view', 'day')
+    user_email = g.user['email'] if g.user else None
+    session_user = session.get('user_id')
+
+    def _summary():
+        if view == 'month':
+            return get_monthly_summary_stats(date_str, user_email=user_email)
+        elif view == 'week':
+            return get_weekly_summary_stats(date_str, user_email=user_email)
+        return get_summary_stats(date_str, user_email=user_email)
+
+    def _scores():
+        if view == 'month':
+            return get_monthly_score_stats(date_str)
+        elif view == 'week':
+            return get_weekly_score_stats(date_str)
+        return get_score_stats(date_str)
+
+    def _timeline():
+        if view == 'month':
+            return get_monthly_timeline_stats(date_str)
+        elif view == 'week':
+            return get_weekly_timeline_stats(date_str)
+        return get_timeline_stats(date_str)
+
+    def _work_stats():
+        activities = get_todays_activities(date_str, user_email=user_email)
+        start_time = activities[-1][1] if activities else None
+        overtime = get_overtime_stats(date_str, user_email=user_email)
+        return {
+            'active': bool(start_time),
+            'start_time': start_time,
+            'total_duration': overtime['total_duration'],
+            'overtime_duration': overtime['overtime_duration'],
+            'is_overtime': overtime['is_overtime']
+        }
+
+    def _work_blocks():
+        try:
+            return get_work_blocks(date_str=date_str)
+        except Exception:
+            return []
+
+    def _status():
+        ss = get_current_session_info(date_str, user_email=session_user)
+        status = 'unknown'
+        if session_user:
+            if get_user_paused(session_user):
+                status = 'paused'
+            else:
+                from psycopg2.extras import RealDictCursor as _RDC
+                from ..database import get_db_connection as _gdc, release_db_connection as _rdc
+                try:
+                    cn = _gdc()
+                    try:
+                        cr = cn.cursor(cursor_factory=_RDC)
+                        two_min = (datetime.datetime.utcnow() - datetime.timedelta(minutes=2)).strftime('%Y-%m-%d %H:%M:%S')
+                        cr.execute('SELECT COUNT(*) as cnt FROM activities WHERE LOWER(user_email) = LOWER(%s) AND server_timestamp >= %s', (session_user, two_min))
+                        r = cr.fetchone()
+                        status = 'running' if r and r['cnt'] > 0 else 'stopped'
+                    finally:
+                        _rdc(cn)
+                except Exception:
+                    status = 'unknown'
+        return {
+            'status': status,
+            'session_start': ss,
+            'server_time': datetime.datetime.utcnow().strftime('%Y-%m-%dT%H:%M:%SZ')
+        }
+
+    def _activities():
+        return get_aggregated_activities(minutes=10, date_str=date_str, user_email=user_email)
+
+    def _focus_stats():
+        rows = get_todays_activities(date_str)
+        cats = {c['id']: c for c in get_categories()}
+        total_time = focus_time = 0
+        for row in rows:
+            duration = row[7]
+            total_time += duration
+            cat = cats.get(row[8])
+            if cat and cat['is_focus']:
+                focus_time += duration
+        quality = (focus_time / total_time * 100) if total_time > 0 else 0
+        return {
+            'quality_score': round(quality, 1),
+            'focus_time': focus_time,
+            'interruptions': len(rows) // 10,
+            'categories': {c['name']: {'color': c['color']} for c in cats.values()}
+        }
+
+    # Run all queries in parallel threads
+    with concurrent.futures.ThreadPoolExecutor(max_workers=8) as pool:
+        f_summary = pool.submit(_summary)
+        f_scores = pool.submit(_scores)
+        f_timeline = pool.submit(_timeline)
+        f_work_stats = pool.submit(_work_stats)
+        f_blocks = pool.submit(_work_blocks)
+        f_status = pool.submit(_status)
+        f_activities = pool.submit(_activities)
+        f_focus = pool.submit(_focus_stats)
+
+    return jsonify({
+        'summary': f_summary.result(),
+        'scores': f_scores.result(),
+        'timeline': f_timeline.result(),
+        'work_stats': f_work_stats.result(),
+        'work_blocks': f_blocks.result(),
+        'status': f_status.result(),
+        'activities': f_activities.result(),
+        'focus_stats': f_focus.result(),
+    })
+
+
 @app.route('/api/activities')
 def api_activities():
     date_str = request.args.get('date')
