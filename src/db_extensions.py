@@ -1,4 +1,4 @@
-from src.database import get_db_connection, SEED_ADMIN_EMAIL
+from src.database import get_db_connection, release_db_connection, SEED_ADMIN_EMAIL
 import psycopg2
 from psycopg2.extras import RealDictCursor
 import datetime
@@ -65,7 +65,7 @@ def get_category_details(category_name, date_str=None):
             
         return grouped
     finally:
-        conn.close()
+        release_db_connection(conn)
 
 def get_client_details(client_name, date_str=None):
     conn = get_db_connection()
@@ -116,7 +116,7 @@ def get_client_details(client_name, date_str=None):
             
         return grouped
     finally:
-        conn.close()
+        release_db_connection(conn)
 
 def assign_activities_bulk(activity_ids, client_id):
     conn = get_db_connection()
@@ -136,7 +136,7 @@ def assign_activities_bulk(activity_ids, client_id):
         conn.rollback()
         return False, str(e)
     finally:
-        conn.close()
+        release_db_connection(conn)
 
 def assign_activities_category_bulk(activity_ids, category_id):
     conn = get_db_connection()
@@ -153,7 +153,7 @@ def assign_activities_category_bulk(activity_ids, category_id):
         conn.rollback()
         return False, str(e)
     finally:
-        conn.close()
+        release_db_connection(conn)
 
 def bulk_update_activities(activity_ids, client_id=None, category_id=None):
     if not activity_ids:
@@ -194,7 +194,7 @@ def bulk_update_activities(activity_ids, client_id=None, category_id=None):
         conn.rollback()
         return False, str(e)
     finally:
-        conn.close()
+        release_db_connection(conn)
 
 def get_aggregated_activities(minutes=10, date_str=None, app_filter=None, title_filter=None, client_filter=None, category_filter=None, user_email=None):
     conn = get_db_connection()
@@ -293,7 +293,7 @@ def get_aggregated_activities(minutes=10, date_str=None, app_filter=None, title_
             
         return aggregated
     finally:
-        conn.close()
+        release_db_connection(conn)
 
 def get_summarized_logs(date_str=None, app_filter=None, title_filter=None, client_filter=None, category_filter=None, user_email=None):
     conn = get_db_connection()
@@ -352,7 +352,7 @@ def get_summarized_logs(date_str=None, app_filter=None, title_filter=None, clien
                 
         return rows
     finally:
-        conn.close()
+        release_db_connection(conn)
 
 def finalize_bucket(bucket):
     dominant_app = max(bucket['apps'].items(), key=lambda x: x[1])[0] if bucket['apps'] else "Unknown"
@@ -430,7 +430,7 @@ def get_score_stats(date_str=None):
             'total_elapsed': int(total_elapsed)
         }
     finally:
-        conn.close()
+        release_db_connection(conn)
 
 def get_timeline_stats(date_str=None):
     conn = get_db_connection()
@@ -484,7 +484,7 @@ def get_timeline_stats(date_str=None):
 
         return [hourly_data[h] for h in sorted(hourly_data.keys())]
     finally:
-        conn.close()
+        release_db_connection(conn)
 
 def get_current_session_info(date_str=None, user_email=None):
     conn = get_db_connection()
@@ -520,7 +520,7 @@ def get_current_session_info(date_str=None, user_email=None):
                 
         return session_start
     finally:
-        conn.close()
+        release_db_connection(conn)
 
 def get_weekly_score_stats(date_str=None):
     if not date_str:
@@ -635,7 +635,7 @@ def get_monthly_summary_stats(date_str=None, user_email=None):
             'by_category': by_category,
         }
     finally:
-        conn.close()
+        release_db_connection(conn)
 
 
 def get_monthly_score_stats(date_str=None):
@@ -835,7 +835,7 @@ def get_team_summary(member_emails, start_date, end_date):
             }
         }
     finally:
-        conn.close()
+        release_db_connection(conn)
 
 def get_member_detail(member_email, start_date, end_date):
     conn = get_db_connection()
@@ -889,4 +889,4 @@ def get_member_detail(member_email, start_date, end_date):
             'activities': rows[:200]
         }
     finally:
-        conn.close()
+        release_db_connection(conn)

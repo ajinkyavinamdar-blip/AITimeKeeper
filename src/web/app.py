@@ -514,7 +514,7 @@ def api_status():
                 status = 'paused'
             else:
                 from psycopg2.extras import RealDictCursor
-                from ..database import get_db_connection
+                from ..database import get_db_connection, release_db_connection
                 try:
                     conn = get_db_connection()
                     try:
@@ -527,7 +527,7 @@ def api_status():
                         row = c.fetchone()
                         status = 'running' if row and row['cnt'] > 0 else 'stopped'
                     finally:
-                        conn.close()
+                        release_db_connection(conn)
                 except Exception as e:
                     print(f'[status] error checking recent logs: {e}')
                     status = 'unknown'

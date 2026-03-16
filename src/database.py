@@ -4,6 +4,7 @@ import secrets
 import datetime
 import psycopg2
 from psycopg2.extras import RealDictCursor
+from psycopg2 import pool as _pg_pool
 from dotenv import load_dotenv
 
 # Load environment variables from .env file if present
@@ -15,14 +16,43 @@ DB_URL = os.environ.get('DATABASE_URL')
 SEED_ADMIN_EMAIL = 'Ajinkya@CFOLogic.com'
 SEED_ADMIN_NAME = 'Ajinkya'
 
+# ── Connection Pool ──────────────────────────────────────────────────────────
+# Keeps 2-8 persistent connections open so each request doesn't pay the
+# ~100 ms TCP+SSL handshake to Supabase.
+_pool = None
+
+def _get_pool():
+    global _pool
+    if _pool is None and DB_URL:
+        url = DB_URL.strip().strip('"').strip("'")
+        _pool = _pg_pool.ThreadedConnectionPool(2, 8, url)
+    return _pool
+
 def get_db_connection():
     if not DB_URL:
         raise ValueError("DATABASE_URL environment variable is not set")
-    # Strip surrounding quotes if accidentally included (e.g. copied from .env file)
+    p = _get_pool()
+    if p:
+        conn = p.getconn()
+        conn.autocommit = False
+        return conn
+    # Fallback: direct connection
     url = DB_URL.strip().strip('"').strip("'")
     conn = psycopg2.connect(url)
     conn.autocommit = False
     return conn
+
+def release_db_connection(conn):
+    """Return a connection to the pool (call instead of conn.close())."""
+    p = _get_pool()
+    if p and conn:
+        try:
+            conn.rollback()  # ensure clean state
+        except Exception:
+            pass
+        p.putconn(conn)
+    elif conn:
+        conn.close()
 
 def init_db():
     try:
@@ -116,6 +146,15 @@ def init_db():
         c.execute("""
             ALTER TABLE users ADD COLUMN IF NOT EXISTS is_paused BOOLEAN DEFAULT FALSE
         """)
+
+        # ── Performance indexes ──────────────────────────────────────────────
+        c.execute("CREATE INDEX IF NOT EXISTS idx_activities_timestamp ON activities(timestamp)")
+        c.execute("CREATE INDEX IF NOT EXISTS idx_activities_user_email ON activities(LOWER(user_email))")
+        c.execute("CREATE INDEX IF NOT EXISTS idx_activities_server_ts ON activities(server_timestamp)")
+        c.execute("CREATE INDEX IF NOT EXISTS idx_activities_category ON activities(category_id)")
+        c.execute("CREATE INDEX IF NOT EXISTS idx_activities_ts_user ON activities(timestamp, user_email)")
+        c.execute("CREATE INDEX IF NOT EXISTS idx_category_mappings_cat ON category_mappings(category_id)")
+        c.execute("CREATE INDEX IF NOT EXISTS idx_api_tokens_email ON api_tokens(LOWER(user_email))")
         
         c.execute('''
             CREATE TABLE IF NOT EXISTS org_settings (
@@ -279,7 +318,7 @@ def init_db():
         raise e
     finally:
         if 'conn' in locals():
-            conn.close()
+            release_db_connection(conn)
 
 
 def log_activity(activity_data):
@@ -303,7 +342,7 @@ def log_activity(activity_data):
         ))
         conn.commit()
     finally:
-        conn.close()
+        release_db_connection(conn)
 
 
 def get_api_token(user_email):
@@ -314,7 +353,7 @@ def get_api_token(user_email):
         row = c.fetchone()
         return row[0] if row else None
     finally:
-        conn.close()
+        release_db_connection(conn)
 
 def rotate_api_token(user_email):
     conn = get_db_connection()
@@ -329,7 +368,7 @@ def rotate_api_token(user_email):
         conn.commit()
         return token
     finally:
-        conn.close()
+        release_db_connection(conn)
 
 def get_user_email_by_token(token):
     if not token:
@@ -341,7 +380,7 @@ def get_user_email_by_token(token):
         row = c.fetchone()
         return row[0] if row else None
     finally:
-        conn.close()
+        release_db_connection(conn)
 
 def get_todays_activities(date_str=None, app_filter=None, title_filter=None, client_filter=None, category_filter=None, user_email=None):
     conn = get_db_connection()
@@ -380,7 +419,7 @@ def get_todays_activities(date_str=None, app_filter=None, title_filter=None, cli
         rows = c.fetchall()
         return rows
     finally:
-        conn.close()
+        release_db_connection(conn)
 
 def _user_email_clause(user_email, alias='a'):
     if not user_email:
@@ -445,7 +484,7 @@ def get_summary_stats(date_str=None, user_email=None):
             'by_category': by_category
         }
     finally:
-        conn.close()
+        release_db_connection(conn)
 
 def get_weekly_summary_stats(date_str=None, user_email=None):
     conn = get_db_connection()
@@ -500,7 +539,7 @@ def get_weekly_summary_stats(date_str=None, user_email=None):
             'by_category': by_category
         }
     finally:
-        conn.close()
+        release_db_connection(conn)
 
 def get_application_stats(app_name, date_str=None):
     conn = get_db_connection()
@@ -544,7 +583,7 @@ def get_application_stats(app_name, date_str=None):
             'by_client': by_client
         }
     finally:
-        conn.close()
+        release_db_connection(conn)
 
 def get_application_activities(app_name, date_str=None):
     conn = get_db_connection()
@@ -564,7 +603,7 @@ def get_application_activities(app_name, date_str=None):
         rows = [dict(row) for row in c.fetchall()]
         return rows
     finally:
-        conn.close()
+        release_db_connection(conn)
 
 # --- Client ---
 def add_client(name, notes="", zoho_org_id=None):
@@ -578,7 +617,7 @@ def add_client(name, notes="", zoho_org_id=None):
         conn.rollback()
         return False, "Client name already exists"
     finally:
-        conn.close()
+        release_db_connection(conn)
 
 def get_clients():
     conn = get_db_connection()
@@ -588,7 +627,7 @@ def get_clients():
         rows = [dict(row) for row in c.fetchall()]
         return rows
     finally:
-        conn.close()
+        release_db_connection(conn)
 
 def update_client(client_id, name, notes, zoho_org_id=None):
     conn = get_db_connection()
@@ -605,7 +644,7 @@ def update_client(client_id, name, notes, zoho_org_id=None):
         conn.rollback()
         return False, str(e)
     finally:
-        conn.close()
+        release_db_connection(conn)
 
 def get_client_by_zoho_org_id(org_id: str):
     if not org_id:
@@ -617,7 +656,7 @@ def get_client_by_zoho_org_id(org_id: str):
         row = c.fetchone()
         return row['name'] if row else None
     finally:
-        conn.close()
+        release_db_connection(conn)
 
 def add_mapping(client_id, pattern_type, pattern_value):
     conn = get_db_connection()
@@ -642,7 +681,7 @@ def add_mapping(client_id, pattern_type, pattern_value):
         conn.rollback()
         return False, str(e)
     finally:
-        conn.close()
+        release_db_connection(conn)
 
 def get_mappings():
     conn = get_db_connection()
@@ -657,7 +696,7 @@ def get_mappings():
         rows = [dict(row) for row in c.fetchall()]
         return rows
     finally:
-        conn.close()
+        release_db_connection(conn)
 
 def get_unassigned_summary():
     conn = get_db_connection()
@@ -681,7 +720,7 @@ def get_unassigned_summary():
         rows = [dict(row) for row in c.fetchall()]
         return rows
     finally:
-        conn.close()
+        release_db_connection(conn)
 
 # --- Categories ---
 def get_categories():
@@ -692,7 +731,7 @@ def get_categories():
         rows = [dict(row) for row in c.fetchall()]
         return rows
     finally:
-        conn.close()
+        release_db_connection(conn)
 
 def get_category_mappings():
     conn = get_db_connection()
@@ -707,7 +746,7 @@ def get_category_mappings():
         rows = [dict(row) for row in c.fetchall()]
         return rows
     finally:
-        conn.close()
+        release_db_connection(conn)
 
 def add_category_mapping(category_id, pattern_type, pattern_value):
     conn = get_db_connection()
@@ -729,7 +768,7 @@ def add_category_mapping(category_id, pattern_type, pattern_value):
         conn.rollback()
         return False, str(e)
     finally:
-        conn.close()
+        release_db_connection(conn)
 
 # --- Analysis ---
 def get_work_blocks(date_str=None):
@@ -808,7 +847,7 @@ def get_work_blocks(date_str=None):
             
         return result[::-1]
     finally:
-        conn.close()
+        release_db_connection(conn)
 
 def get_overtime_stats(date_str=None, user_email=None):
     conn = get_db_connection()
@@ -833,7 +872,7 @@ def get_overtime_stats(date_str=None, user_email=None):
             'is_overtime': total_duration > 32400
         }
     finally:
-        conn.close()
+        release_db_connection(conn)
 
 def get_user_by_email(email):
     conn = get_db_connection()
@@ -843,7 +882,7 @@ def get_user_by_email(email):
         row = c.fetchone()
         return dict(row) if row else None
     finally:
-        conn.close()
+        release_db_connection(conn)
 
 def set_user_paused(email: str, paused: bool):
     """Set tracking paused state for a user (used by web UI pause/resume)."""
@@ -858,7 +897,7 @@ def set_user_paused(email: str, paused: bool):
         print(f"[set_user_paused] error: {e}")
         return False
     finally:
-        conn.close()
+        release_db_connection(conn)
 
 def get_user_paused(email: str) -> bool:
     """Returns True if the user has paused tracking."""
@@ -869,7 +908,7 @@ def get_user_paused(email: str) -> bool:
         row = c.fetchone()
         return bool(row['is_paused']) if row else False
     finally:
-        conn.close()
+        release_db_connection(conn)
 
 def get_all_users():
     conn = get_db_connection()
@@ -884,7 +923,7 @@ def get_all_users():
         rows = [dict(r) for r in c.fetchall()]
         return rows
     finally:
-        conn.close()
+        release_db_connection(conn)
 
 def upsert_user(email, name, role='member', manager_id=None):
     conn = get_db_connection()
@@ -904,7 +943,7 @@ def upsert_user(email, name, role='member', manager_id=None):
         conn.rollback()
         return False, str(e)
     finally:
-        conn.close()
+        release_db_connection(conn)
 
 def delete_user(user_id):
     conn = get_db_connection()
@@ -919,7 +958,7 @@ def delete_user(user_id):
         conn.rollback()
         return False, str(e)
     finally:
-        conn.close()
+        release_db_connection(conn)
 
 def get_org_settings():
     conn = get_db_connection()
@@ -929,7 +968,7 @@ def get_org_settings():
         d = {row[0]: row[1] for row in c.fetchall()}
         return d
     finally:
-        conn.close()
+        release_db_connection(conn)
 
 def update_org_setting(key, value):
     conn = get_db_connection()
@@ -938,7 +977,7 @@ def update_org_setting(key, value):
         c.execute("INSERT INTO org_settings (key, value) VALUES (%s, %s) ON CONFLICT(key) DO UPDATE SET value = EXCLUDED.value", (key, value))
         conn.commit()
     finally:
-        conn.close()
+        release_db_connection(conn)
 
 # Org reporting helpers
 def get_all_reports(manager_email):
@@ -969,7 +1008,7 @@ def get_all_reports(manager_email):
             
         return reports
     finally:
-        conn.close()
+        release_db_connection(conn)
 
 def has_reports(manager_email):
     return len(get_all_reports(manager_email)) > 0
@@ -1008,7 +1047,7 @@ def update_category_full(cat_id, name=None, is_focus=None, is_distraction=None, 
         conn.rollback()
         return False, str(e)
     finally:
-        conn.close()
+        release_db_connection(conn)
 
 def add_category(name, is_focus=False, is_distraction=False, color='#808080', is_billable=True):
     conn = get_db_connection()
@@ -1024,7 +1063,7 @@ def add_category(name, is_focus=False, is_distraction=False, color='#808080', is
         conn.rollback()
         return False, "Category already exists"
     finally:
-        conn.close()
+        release_db_connection(conn)
 
 def update_category_billable(cat_id, is_billable):
     conn = get_db_connection()
@@ -1037,4 +1076,4 @@ def update_category_billable(cat_id, is_billable):
         conn.rollback()
         return False, str(e)
     finally:
-        conn.close()
+        release_db_connection(conn)
