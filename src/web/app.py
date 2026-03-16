@@ -18,6 +18,8 @@ from ..database import (
     get_api_token, rotate_api_token, get_user_email_by_token, log_activity,
     # Pause/resume
     set_user_paused, get_user_paused,
+    # Agent health
+    update_agent_heartbeat, get_all_agent_status,
     SEED_ADMIN_EMAIL
 )
 from ..db_extensions import (
@@ -698,6 +700,18 @@ def api_agent_poll():
     return jsonify({'paused': paused})
 
 # ============================================================
+# --- Agent Health (Admin Diagnostics) ---
+# ============================================================
+
+@app.route('/api/admin/agent-health')
+def api_admin_agent_health():
+    """Returns agent connection status for all users (admin only)."""
+    if not g.user or g.user.get('email', '').lower() != SEED_ADMIN_EMAIL.lower():
+        return jsonify({'error': 'Admin access required'}), 403
+    return jsonify(get_all_agent_status())
+
+
+# ============================================================
 # --- Ingest API (Desktop Agent → Central Backend) ---
 # ============================================================
 
@@ -751,6 +765,10 @@ def api_ingest():
             accepted += 1
         except Exception as e:
             print(f"[ingest] Failed to write log entry: {e}")
+
+    # Update heartbeat so admin can monitor agent health per user
+    if accepted > 0:
+        update_agent_heartbeat(user_email)
 
     return jsonify({'accepted': accepted})
 

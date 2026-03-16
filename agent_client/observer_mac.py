@@ -2,8 +2,12 @@
 observer_mac.py — macOS activity observer for the desktop agent.
 Mirrors src/monitoring/macos.py but is standalone (no relative imports).
 """
+import re
 import subprocess
 from dataclasses import dataclass
+
+# Strip invisible Unicode characters (LTR mark, RTL mark, zero-width space, etc.)
+_INVISIBLE_RE = re.compile(r'[\u200e\u200f\u200b\u200c\u200d\u2060\ufeff]')
 
 
 @dataclass
@@ -43,7 +47,7 @@ class MacObserver:
             return Activity("Unknown", "Unknown")
 
         parts = result.split("|")
-        app_name = parts[0] if parts else "Unknown"
+        app_name = _INVISIBLE_RE.sub('', parts[0]).strip() if parts else "Unknown"
 
         window_title = self._run(
             f'tell application "System Events" to tell process "{app_name}" to get name of front window'
@@ -59,6 +63,6 @@ class MacObserver:
 
         return Activity(
             app_name=app_name,
-            window_title=window_title,
-            url_or_filename=url or filename,
+            window_title=_INVISIBLE_RE.sub('', window_title).strip(),
+            url_or_filename=_INVISIBLE_RE.sub('', url or filename).strip(),
         )

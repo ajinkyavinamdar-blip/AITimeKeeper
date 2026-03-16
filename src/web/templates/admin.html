@@ -31,6 +31,10 @@
             class="tab-btn px-5 py-2 text-xs font-bold rounded-xl text-slate-400 hover:text-white transition-all">
             🏷️ Categories
         </button>
+        <button onclick="switchTab('agents')" id="tab-agents"
+            class="tab-btn px-5 py-2 text-xs font-bold rounded-xl text-slate-400 hover:text-white transition-all">
+            📡 Agent Health
+        </button>
     </div>
 
     <!-- Toast -->
@@ -201,6 +205,34 @@
             </div>
             <div id="categories-list" class="divide-y divide-slate-700/30">
                 <div class="text-center text-slate-500 text-xs py-10">Loading...</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ===== AGENTS TAB ===== -->
+    <div id="panel-agents" class="tab-panel hidden space-y-4">
+        <div class="bg-slate-800/50 rounded-2xl border border-slate-700/50 backdrop-blur-sm overflow-hidden">
+            <div class="p-4 border-b border-slate-700/50 flex justify-between items-center">
+                <div>
+                    <h2 class="text-sm font-bold text-white">Desktop Agent Status</h2>
+                    <p class="text-xs text-slate-500 mt-0.5">Real-time health of each user's tracking agent</p>
+                </div>
+                <div class="text-[10px] text-slate-500" id="agent-health-refresh">Auto-refreshes every 30s</div>
+            </div>
+            <div class="overflow-x-auto">
+                <table class="w-full text-left text-sm">
+                    <thead>
+                        <tr class="text-[10px] uppercase tracking-wider text-slate-500 border-b border-slate-700/50">
+                            <th class="px-5 py-3">User</th>
+                            <th class="px-5 py-3">Status</th>
+                            <th class="px-5 py-3">Last Heartbeat</th>
+                            <th class="px-5 py-3">Tracking</th>
+                        </tr>
+                    </thead>
+                    <tbody id="agent-health-body" class="divide-y divide-slate-700/30">
+                        <tr><td colspan="4" class="text-center text-slate-500 text-xs py-10">Loading...</td></tr>
+                    </tbody>
+                </table>
             </div>
         </div>
     </div>
@@ -536,6 +568,71 @@
             showToast(data.message || 'Error saving client', 'error');
         }
     }
+
+    // ─── Agent Health ─────────────────────────────────────────────────────────────
+    async function loadAgentHealth() {
+        try {
+            const res = await fetch('/api/admin/agent-health');
+            if (!res.ok) return;
+            const agents = await res.json();
+            const tbody = document.getElementById('agent-health-body');
+            if (!agents.length) {
+                tbody.innerHTML = '<tr><td colspan="4" class="text-center text-slate-500 text-xs py-10">No users found.</td></tr>';
+                return;
+            }
+            const statusBadge = {
+                online:  'text-emerald-400 bg-emerald-500/10 border-emerald-500/20',
+                delayed: 'text-amber-400 bg-amber-500/10 border-amber-500/20',
+                offline: 'text-red-400 bg-red-500/10 border-red-500/20',
+                never:   'text-slate-500 bg-slate-700/30 border-slate-600/20',
+            };
+            const statusDot = {
+                online: 'bg-emerald-500', delayed: 'bg-amber-500', offline: 'bg-red-500', never: 'bg-slate-600',
+            };
+            function timeAgo(sec) {
+                if (sec == null) return 'Never connected';
+                if (sec < 60) return `${sec}s ago`;
+                if (sec < 3600) return `${Math.floor(sec/60)}m ago`;
+                if (sec < 86400) return `${Math.floor(sec/3600)}h ago`;
+                return `${Math.floor(sec/86400)}d ago`;
+            }
+            tbody.innerHTML = agents.map(a => `
+                <tr class="hover:bg-slate-700/20 transition-colors">
+                    <td class="px-5 py-3">
+                        <div class="font-semibold text-white text-sm">${a.name || a.email}</div>
+                        <div class="text-[10px] text-slate-500 font-mono">${a.email}</div>
+                    </td>
+                    <td class="px-5 py-3">
+                        <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-[10px] font-bold uppercase tracking-wider ${statusBadge[a.status]}">
+                            <span class="w-1.5 h-1.5 rounded-full ${statusDot[a.status]} ${a.status === 'online' ? 'animate-pulse' : ''}"></span>
+                            ${a.status}
+                        </span>
+                    </td>
+                    <td class="px-5 py-3 text-slate-400 text-xs">${timeAgo(a.seconds_ago)}</td>
+                    <td class="px-5 py-3">
+                        ${a.is_paused
+                            ? '<span class="text-[10px] font-bold text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded border border-amber-500/20">PAUSED</span>'
+                            : '<span class="text-[10px] font-bold text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20">ACTIVE</span>'}
+                    </td>
+                </tr>
+            `).join('');
+        } catch (e) {
+            console.error('Agent health load error:', e);
+        }
+    }
+
+    // Auto-refresh agent health every 30s when tab is visible
+    let agentHealthInterval = null;
+    const origSwitchTab = switchTab;
+    switchTab = function(tab) {
+        origSwitchTab(tab);
+        if (tab === 'agents') {
+            loadAgentHealth();
+            if (!agentHealthInterval) agentHealthInterval = setInterval(loadAgentHealth, 30000);
+        } else {
+            if (agentHealthInterval) { clearInterval(agentHealthInterval); agentHealthInterval = null; }
+        }
+    };
 
     // ─── Init ─────────────────────────────────────────────────────────────────────
     loadUsers();

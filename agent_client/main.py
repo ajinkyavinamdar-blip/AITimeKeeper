@@ -8,14 +8,43 @@ Usage:
 The agent records activity every 5 seconds locally and uploads in
 batches to the central backend every 30 seconds.
 """
+import os
 import sys
 import time
 import datetime
 import platform
 import threading
 
+import psutil
+
 import config
 import uploader
+
+
+# ── Single Instance Guard ────────────────────────────────────────────────────
+
+def _kill_old_instances():
+    """Kill any other AITimeKeeper processes to prevent duplicates."""
+    my_pid = os.getpid()
+    my_ppid = os.getppid()
+    killed = 0
+
+    for proc in psutil.process_iter(['pid', 'name', 'cmdline']):
+        try:
+            pid = proc.info['pid']
+            if pid in (my_pid, my_ppid):
+                continue
+            name = (proc.info['name'] or '').lower()
+            cmdline = ' '.join(proc.info['cmdline'] or []).lower()
+            if 'aitimekeeper' in name or 'aitimekeeper' in cmdline:
+                print(f"[agent] Killing old instance PID {pid}")
+                proc.kill()
+                killed += 1
+        except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
+            pass
+
+    if killed:
+        print(f"[agent] Cleaned up {killed} old instance(s)")
 
 # ── Platform Observer ─────────────────────────────────────────────────────────
 
@@ -241,8 +270,9 @@ def _build_tray_icon(loop):
 # ── Entry Point ───────────────────────────────────────────────────────────────
 
 def main():
+    _kill_old_instances()
+
     if "--reset-config" in sys.argv:
-        import os
         if os.path.exists(config.CONFIG_FILE):
             os.remove(config.CONFIG_FILE)
         print("Config cleared.")

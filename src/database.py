@@ -142,9 +142,12 @@ def init_db():
                 created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
             )
         ''')
-        # Add is_paused column if upgrading from an older schema
+        # Add columns if upgrading from an older schema
         c.execute("""
             ALTER TABLE users ADD COLUMN IF NOT EXISTS is_paused BOOLEAN DEFAULT FALSE
+        """)
+        c.execute("""
+            ALTER TABLE users ADD COLUMN IF NOT EXISTS last_agent_heartbeat TIMESTAMP
         """)
 
         # ── Performance indexes ──────────────────────────────────────────────
@@ -981,6 +984,55 @@ def get_user_paused(email: str) -> bool:
         return bool(row['is_paused']) if row else False
     finally:
         release_db_connection(conn)
+
+def update_agent_heartbeat(email: str):
+    """Update the last_agent_heartbeat timestamp for a user (called on each successful ingest)."""
+    conn = get_db_connection()
+    try:
+        c = conn.cursor()
+        c.execute("UPDATE users SET last_agent_heartbeat = NOW() WHERE LOWER(email) = LOWER(%s)", (email,))
+        conn.commit()
+    except Exception as e:
+        conn.rollback()
+        print(f"[update_agent_heartbeat] error: {e}")
+    finally:
+        release_db_connection(conn)
+
+
+def get_all_agent_status():
+    """Return agent health info for all users (admin diagnostics)."""
+    conn = get_db_connection()
+    try:
+        c = conn.cursor(cursor_factory=RealDictCursor)
+        c.execute("""
+            SELECT email, name, is_paused, last_agent_heartbeat,
+                   EXTRACT(EPOCH FROM (NOW() - last_agent_heartbeat)) as seconds_ago
+            FROM users
+            ORDER BY last_agent_heartbeat DESC NULLS LAST
+        """)
+        rows = []
+        for r in c.fetchall():
+            sec = r['seconds_ago']
+            if r['last_agent_heartbeat'] is None:
+                status = 'never'
+            elif sec is not None and sec < 120:
+                status = 'online'
+            elif sec is not None and sec < 600:
+                status = 'delayed'
+            else:
+                status = 'offline'
+            rows.append({
+                'email': r['email'],
+                'name': r['name'],
+                'is_paused': bool(r['is_paused']),
+                'last_heartbeat': r['last_agent_heartbeat'].isoformat() if r['last_agent_heartbeat'] else None,
+                'seconds_ago': int(sec) if sec is not None else None,
+                'status': status,
+            })
+        return rows
+    finally:
+        release_db_connection(conn)
+
 
 def get_all_users():
     conn = get_db_connection()
