@@ -336,10 +336,15 @@
             document.getElementById('time-since-break').innerText = "00:00:00";
             return;
         }
-
-        const now = new Date(Date.now() + serverTimeOffset);
-        const start = new Date(sessionStartTs);
-        const diff = Math.max(0, Math.floor((now - start) / 1000));
+        // sessionStartTs is a naive local-time string from the desktop agent (same TZ as browser).
+        // Replace the space with 'T' so browsers parse it as local time, not UTC.
+        const startLocal = sessionStartTs.replace(' ', 'T');
+        const start = new Date(startLocal);
+        if (isNaN(start.getTime())) {
+            document.getElementById('time-since-break').innerText = "00:00:00";
+            return;
+        }
+        const diff = Math.max(0, Math.floor((Date.now() - start.getTime()) / 1000));
 
         const h = Math.floor(diff / 3600);
         const m = Math.floor((diff % 3600) / 60);
@@ -513,11 +518,15 @@
             // Sync session & timers
             isTracking = statusData.status === 'running';
             isBreak = statusData.status === 'break' || statusData.status === 'paused';
-            sessionStartTs = statusData.session_start;
+            sessionStartTs = statusData.session_start;  // agent local time string
 
-            // Server time offset
-            const serverDate = new Date(statusData.server_time);
-            serverTimeOffset = serverDate.getTime() - Date.now();
+            // server_time is now ISO UTC — compute offset to align break timer
+            // sessionStartTs is agent local time (same TZ as user's browser), so we
+            // compute elapsed on the server to avoid TZ mismatch
+            if (statusData.server_time) {
+                const serverDate = new Date(statusData.server_time); // parses ISO UTC correctly
+                serverTimeOffset = serverDate.getTime() - Date.now();
+            }
 
             const trackBtn = document.getElementById('tracking-toggle-btn');
             const breakBtn = document.getElementById('break-toggle-btn');

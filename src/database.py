@@ -108,9 +108,14 @@ def init_db():
                 name TEXT NOT NULL,
                 role TEXT DEFAULT 'member',
                 manager_id INTEGER REFERENCES users(id),
+                is_paused BOOLEAN DEFAULT FALSE,
                 created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
             )
         ''')
+        # Add is_paused column if upgrading from an older schema
+        c.execute("""
+            ALTER TABLE users ADD COLUMN IF NOT EXISTS is_paused BOOLEAN DEFAULT FALSE
+        """)
         
         c.execute('''
             CREATE TABLE IF NOT EXISTS org_settings (
@@ -135,23 +140,26 @@ def init_db():
             token = secrets.token_hex(32)
             c.execute("INSERT INTO api_tokens (token, user_email) VALUES (%s, %s)", (token, SEED_ADMIN_EMAIL))
 
-        # Seed Categories
-        c.execute("SELECT COUNT(*) FROM categories")
-        if c.fetchone()[0] == 0:
-            defaults = [
-                ('Code', True, False, '#8B5CF6'),   
-                ('Browsing', False, True, '#F59E0B'), 
-                ('Design', True, False, '#EC4899'), 
-                ('Admin', False, False, '#9CA3AF'),  
-                ('Operations', True, False, '#0D9488'), 
-                ('Documents', True, False, '#0EA5E9'), 
-                ('Tech Development', True, False, '#4F46E5'), 
-                ('Collaboration', False, False, '#059669'), 
-                ('Social Media', False, True, '#D946EF'), 
-                ('AI', True, False, '#8B5CF6') 
-            ]
-            import psycopg2.extras
-            psycopg2.extras.execute_batch(c, "INSERT INTO categories (name, is_focus, is_distraction, color) VALUES (%s, %s, %s, %s)", defaults)
+        # Seed Categories — always upsert so new defaults are added on redeploy
+        import psycopg2.extras
+        defaults = [
+            ('Code',             True,  False, '#8B5CF6'),
+            ('Browsing',         False, True,  '#F59E0B'),
+            ('Design',           True,  False, '#EC4899'),
+            ('Admin',            False, False, '#9CA3AF'),
+            ('Operations',       True,  False, '#0D9488'),
+            ('Documents',        True,  False, '#0EA5E9'),
+            ('Tech Development', True,  False, '#4F46E5'),
+            ('Collaboration',    False, False, '#059669'),
+            ('Communication',    False, False, '#06B6D4'),   # Outlook, Teams, Zoom
+            ('Social Media',     False, True,  '#D946EF'),
+            ('AI',               True,  False, '#8B5CF6'),
+        ]
+        psycopg2.extras.execute_batch(
+            c,
+            "INSERT INTO categories (name, is_focus, is_distraction, color) VALUES (%s, %s, %s, %s) ON CONFLICT (name) DO NOTHING",
+            defaults
+        )
 
         conn.commit()
     except Exception as e:
@@ -287,11 +295,12 @@ def get_summary_stats(date_str=None, user_email=None):
                   [start_time, end_time] + ue_params)
         total_duration = c.fetchone()['coalesce']
 
-        # By App
+        # By App (exclude null/empty app names)
         c.execute(f'''
             SELECT app_name, SUM(duration) as total_time
-            FROM activities 
+            FROM activities
             WHERE timestamp >= %s AND timestamp <= %s{ue_sql}
+              AND app_name IS NOT NULL AND app_name != ''
             GROUP BY app_name
             ORDER BY total_time DESC
         ''', [start_time, end_time] + ue_params)
@@ -350,8 +359,9 @@ def get_weekly_summary_stats(date_str=None, user_email=None):
 
         c.execute(f'''
             SELECT app_name, SUM(duration) as total_time
-            FROM activities 
+            FROM activities
             WHERE timestamp >= %s AND timestamp <= %s{ue_sql}
+              AND app_name IS NOT NULL AND app_name != ''
             GROUP BY app_name ORDER BY total_time DESC
         ''', [start_time, end_time] + ue_params)
         by_app = [dict(row) for row in c.fetchall()]
@@ -722,6 +732,32 @@ def get_user_by_email(email):
         c.execute("SELECT * FROM users WHERE LOWER(email) = LOWER(%s)", (email,))
         row = c.fetchone()
         return dict(row) if row else None
+    finally:
+        conn.close()
+
+def set_user_paused(email: str, paused: bool):
+    """Set tracking paused state for a user (used by web UI pause/resume)."""
+    conn = get_db_connection()
+    try:
+        c = conn.cursor()
+        c.execute("UPDATE users SET is_paused = %s WHERE LOWER(email) = LOWER(%s)", (paused, email))
+        conn.commit()
+        return True
+    except Exception as e:
+        conn.rollback()
+        print(f"[set_user_paused] error: {e}")
+        return False
+    finally:
+        conn.close()
+
+def get_user_paused(email: str) -> bool:
+    """Returns True if the user has paused tracking."""
+    conn = get_db_connection()
+    try:
+        c = conn.cursor(cursor_factory=RealDictCursor)
+        c.execute("SELECT is_paused FROM users WHERE LOWER(email) = LOWER(%s)", (email,))
+        row = c.fetchone()
+        return bool(row['is_paused']) if row else False
     finally:
         conn.close()
 

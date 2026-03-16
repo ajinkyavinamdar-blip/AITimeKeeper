@@ -485,21 +485,22 @@ def get_timeline_stats(date_str=None):
     finally:
         conn.close()
 
-def get_current_session_info(date_str=None):
+def get_current_session_info(date_str=None, user_email=None):
     conn = get_db_connection()
     try:
         c = conn.cursor(cursor_factory=RealDictCursor)
-        
+
         if not date_str:
             date_str = datetime.datetime.now().strftime('%Y-%m-%d')
         start_time = f"{date_str} 00:00:00"
         end_time = f"{date_str} 23:59:59"
-        
-        c.execute('''
-            SELECT timestamp FROM activities 
-            WHERE timestamp >= %s AND timestamp <= %s
+
+        ue_sql, ue_params = _ue_clause(user_email)
+        c.execute(f'''
+            SELECT timestamp FROM activities
+            WHERE timestamp >= %s AND timestamp <= %s{ue_sql}
             ORDER BY timestamp ASC
-        ''', (start_time, end_time))
+        ''', [start_time, end_time] + ue_params)
         
         rows = c.fetchall()
         

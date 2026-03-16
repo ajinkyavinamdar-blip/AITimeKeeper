@@ -183,8 +183,12 @@
     let clients = [];
     let debounceTimer;
 
-    // Set default date to today
-    document.getElementById('date-picker').valueAsDate = new Date();
+    // Set default date to today (local timezone — valueAsDate uses UTC and can show wrong date)
+    const _today = new Date();
+    document.getElementById('date-picker').value =
+        _today.getFullYear() + '-' +
+        String(_today.getMonth() + 1).padStart(2, '0') + '-' +
+        String(_today.getDate()).padStart(2, '0');
 
     async function init() {
         await fetchMetadata();
@@ -267,6 +271,7 @@
             if (member) url += `&member=${encodeURIComponent(member)}`;
 
             const response = await fetch(url);
+            if (!response.ok) throw new Error(`API error ${response.status}`);
             const data = await response.json();
 
             tbody.innerHTML = '';
@@ -276,7 +281,10 @@
             }
 
             data.forEach(act => {
-                const actIds = act.ids || [act.id];
+                // ids from summarized view is a comma-string e.g. "1,2,3" — convert to int array
+                const actIds = act.ids
+                    ? (typeof act.ids === 'string' ? act.ids.split(',').map(Number) : act.ids)
+                    : [act.id];
                 const cat = categories.find(c => c.id === act.category_id);
                 const color = cat ? cat.color : '#64748b';
                 const timeStr = act.last_timestamp ? act.last_timestamp.split(' ')[1].substring(0, 8) : (act.timestamp ? act.timestamp.split(' ')[1].substring(0, 8) : '--:--:--');
