@@ -11,3 +11,9 @@ pywin32; sys_platform == 'win32'
 uiautomation; sys_platform == 'win32'
 win10toast; sys_platform == 'win32'
 google-generativeai
+
+psycopg2-binary
+supabase
+python-dotenv
+gunicorn
+requests
