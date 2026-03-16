@@ -7,7 +7,7 @@ import sys, os, json, mimetypes
 import urllib.request, urllib.error
 
 REPO = "ajinkyavinamdar-blip/AITimeKeeper"
-TAG = "v1.4.0"
+TAG = "v1.4.1"
 RELEASE_NAME = "v1.4.0 — Bulletproof Upload Resilience"
 RELEASE_BODY = """## AI TimeKeeper Desktop Agent v1.4.0
 
@@ -28,7 +28,7 @@ RELEASE_BODY = """## AI TimeKeeper Desktop Agent v1.4.0
 - Faster, more reliable, fewer chances of partial failures
 
 ### Download & Install
-- **Mac**: Download `AITimeKeeper-Mac-1.4.0.zip`, unzip, drag to Applications
+- **Mac**: Download `AITimeKeeper-Mac-1.4.1.zip`, unzip, drag to Applications
   - First time: right-click → Open (to bypass Gatekeeper)
 
 ### First Run
@@ -40,7 +40,7 @@ It will automatically fetch your API token and start tracking.
 """
 
 DIST_DIR = os.path.join(os.path.dirname(__file__), "dist")
-MAC_ZIP = os.path.join(DIST_DIR, "AITimeKeeper-Mac-1.4.0.zip")
+MAC_ZIP = os.path.join(DIST_DIR, "AITimeKeeper-Mac-1.4.1.zip")
 
 def gh_request(token, method, path, data=None, binary=None, content_type="application/json"):
     url = f"https://api.github.com{path}"

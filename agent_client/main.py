@@ -11,14 +11,78 @@ batches to the central backend every 30 seconds.
 import os
 import sys
 import time
+import json
 import datetime
 import platform
 import threading
+import logging
+import traceback
 
 import psutil
 
 import config
 import uploader
+
+# ── Logging Setup ────────────────────────────────────────────────────────────
+
+LOG_DIR = os.path.join(os.path.expanduser("~"), ".aitimekeeper")
+LOG_FILE = os.path.join(LOG_DIR, "agent.log")
+BUFFER_FILE = os.path.join(LOG_DIR, "pending_buffer.json")
+
+os.makedirs(LOG_DIR, exist_ok=True)
+
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s [%(levelname)s] %(message)s",
+    handlers=[
+        logging.FileHandler(LOG_FILE, maxBytes=0),  # we'll use RotatingFileHandler
+        logging.StreamHandler(sys.stdout),
+    ],
+)
+# Replace with RotatingFileHandler to cap log size at 5MB
+from logging.handlers import RotatingFileHandler
+root_logger = logging.getLogger()
+root_logger.handlers.clear()
+file_handler = RotatingFileHandler(LOG_FILE, maxBytes=5*1024*1024, backupCount=2)
+file_handler.setFormatter(logging.Formatter("%(asctime)s [%(levelname)s] %(message)s"))
+stdout_handler = logging.StreamHandler(sys.stdout)
+stdout_handler.setFormatter(logging.Formatter("%(asctime)s [%(levelname)s] %(message)s"))
+root_logger.addHandler(file_handler)
+root_logger.addHandler(stdout_handler)
+
+log = logging.getLogger("agent")
+
+
+# ── Disable macOS App Nap ────────────────────────────────────────────────────
+
+def _disable_app_nap():
+    """Prevent macOS from suspending this process via App Nap.
+
+    App Nap freezes background processes to save power, which kills
+    our upload and tracking threads silently. This is the #1 cause of
+    'logs stop flowing after 30 min'.
+    """
+    if platform.system() != "Darwin":
+        return
+    try:
+        import objc
+        from Foundation import NSProcessInfo
+        info = NSProcessInfo.processInfo()
+        # NSActivityUserInitiated | NSActivityIdleSystemSleepDisabled
+        # This tells macOS: "I'm doing important user-initiated work,
+        # don't suspend me or let the system idle-sleep"
+        activity = info.beginActivityWithOptions_reason_(
+            0x00FFFFFF,  # NSActivityUserInitiated (prevents App Nap + idle sleep)
+            "AITimeKeeper must continuously track user activity"
+        )
+        log.info("macOS App Nap disabled successfully")
+        return activity  # must keep reference alive
+    except ImportError:
+        log.warning("pyobjc not available — cannot disable App Nap. "
+                     "Install with: pip install pyobjc-framework-Cocoa")
+    except Exception as e:
+        log.warning(f"Could not disable App Nap: {e}")
+    return None
 
 
 # ── Single Instance Guard ────────────────────────────────────────────────────
@@ -37,14 +101,14 @@ def _kill_old_instances():
             name = (proc.info['name'] or '').lower()
             cmdline = ' '.join(proc.info['cmdline'] or []).lower()
             if 'aitimekeeper' in name or 'aitimekeeper' in cmdline:
-                print(f"[agent] Killing old instance PID {pid}")
+                log.info(f"Killing old instance PID {pid}")
                 proc.kill()
                 killed += 1
         except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
             pass
 
     if killed:
-        print(f"[agent] Cleaned up {killed} old instance(s)")
+        log.info(f"Cleaned up {killed} old instance(s)")
 
 # ── Platform Observer ─────────────────────────────────────────────────────────
 
@@ -57,7 +121,7 @@ def _get_observer():
         from observer_win import WindowsObserver
         return WindowsObserver()
     else:
-        print(f"Unsupported OS: {os_type}")
+        log.error(f"Unsupported OS: {os_type}")
         return None
 
 
@@ -87,6 +151,45 @@ class IdleFilter:
         return (time.time() - self.last_activity) > self.threshold
 
 
+# ── Buffer Persistence ───────────────────────────────────────────────────────
+
+def _save_buffer_to_disk(entries):
+    """Persist unsent entries to disk so they survive crashes."""
+    if not entries:
+        return
+    try:
+        existing = _load_buffer_from_disk()
+        existing.extend(entries)
+        # Cap at 50,000 entries (~7 hours of 5s polls) to prevent unbounded growth
+        if len(existing) > 50000:
+            existing = existing[-50000:]
+        with open(BUFFER_FILE, "w") as f:
+            json.dump(existing, f)
+    except Exception as e:
+        log.error(f"Failed to save buffer to disk: {e}")
+
+
+def _load_buffer_from_disk():
+    """Load any pending entries from a previous session/crash."""
+    if not os.path.exists(BUFFER_FILE):
+        return []
+    try:
+        with open(BUFFER_FILE, "r") as f:
+            data = json.load(f)
+        return data if isinstance(data, list) else []
+    except Exception:
+        return []
+
+
+def _clear_buffer_on_disk():
+    """Clear the on-disk buffer after successful upload."""
+    try:
+        with open(BUFFER_FILE, "w") as f:
+            json.dump([], f)
+    except Exception:
+        pass
+
+
 # ── Main Loop ─────────────────────────────────────────────────────────────────
 
 class AgentLoop:
@@ -106,24 +209,34 @@ class AgentLoop:
         self._consecutive_upload_failures = 0
         self._last_successful_upload = None  # timestamp of last good upload
         self._threads = {}  # name → thread, for watchdog
+        self._track_count = 0  # entries tracked since start
+        self._upload_count = 0  # entries uploaded since start
 
     def pause(self):
         self.paused = True
-        print("[agent] Tracking paused")
+        log.info("Tracking paused")
 
     def resume(self):
         self.paused = False
-        print("[agent] Tracking resumed")
+        log.info("Tracking resumed")
 
     def start(self):
         self.running = True
         self.idle_filter.start()
 
+        # Recover any unsent buffer from previous crash
+        recovered = _load_buffer_from_disk()
+        if recovered:
+            log.info(f"Recovered {len(recovered)} unsent entries from previous session")
+            with self.lock:
+                self.buffer.extend(recovered)
+            _clear_buffer_on_disk()
+
         self._start_thread('upload', self._upload_loop)
         self._start_thread('control', self._control_poll_loop)
         self._start_thread('watchdog', self._watchdog_loop)
 
-        print(f"[agent] Tracking started for {self.cfg['user_email']}")
+        log.info(f"Tracking started for {self.cfg['user_email']}")
         self._track_loop()
 
     def _start_thread(self, name, target):
@@ -133,15 +246,29 @@ class AgentLoop:
         self._threads[name] = (t, target)
 
     def _watchdog_loop(self):
-        """Monitors critical threads and restarts any that have died."""
+        """Monitors critical threads, restarts dead ones, logs health stats."""
         while self.running:
             time.sleep(self.WATCHDOG_INTERVAL)
-            for name, (thread, target) in list(self._threads.items()):
-                if name == 'watchdog':
-                    continue  # don't watch ourselves
-                if not thread.is_alive():
-                    print(f"[watchdog] Thread '{name}' died — restarting")
-                    self._start_thread(name, target)
+            try:
+                for name, (thread, target) in list(self._threads.items()):
+                    if name == 'watchdog':
+                        continue
+                    if not thread.is_alive():
+                        log.warning(f"[watchdog] Thread '{name}' died — restarting")
+                        self._start_thread(name, target)
+
+                # Periodic health log (every 5 minutes)
+                if int(time.time()) % 300 < self.WATCHDOG_INTERVAL:
+                    with self.lock:
+                        buf_size = len(self.buffer)
+                    idle_str = "idle" if self.idle_filter.is_idle() else "active"
+                    paused_str = "paused" if self.paused else "tracking"
+                    log.info(f"[health] {paused_str}, {idle_str}, "
+                             f"buffer={buf_size}, tracked={self._track_count}, "
+                             f"uploaded={self._upload_count}, "
+                             f"failures={self._consecutive_upload_failures}")
+            except Exception as e:
+                log.error(f"[watchdog] error: {e}")
 
     def _track_loop(self):
         while self.running:
@@ -160,8 +287,9 @@ class AgentLoop:
                     }
                     with self.lock:
                         self.buffer.append(entry)
+                    self._track_count += 1
             except Exception as e:
-                print(f"[agent] Tracking error: {e}")
+                log.error(f"Tracking error: {e}")
             time.sleep(self.POLL_INTERVAL)
 
     def _upload_loop(self):
@@ -173,23 +301,31 @@ class AgentLoop:
                 with self.lock:
                     batch = list(self.buffer)
                     self.buffer.clear()
+
                 if batch:
+                    # Save to disk BEFORE attempting upload — if we crash during
+                    # upload, these entries will be recovered on next start
+                    _save_buffer_to_disk(batch)
+
                     ok = uploader.post_batch(self.cfg, batch)
                     if ok:
                         self._consecutive_upload_failures = 0
                         self._last_successful_upload = time.time()
+                        self._upload_count += len(batch)
+                        # Clear disk buffer on success
+                        _clear_buffer_on_disk()
                     else:
                         self._consecutive_upload_failures += 1
                         # Exponential backoff: wait extra time on repeated failures
                         # 30s, 60s, 120s, max 300s between attempts
                         backoff = min(self.UPLOAD_INTERVAL * (2 ** self._consecutive_upload_failures),
                                       300)
-                        print(f"[agent] Upload failed ({self._consecutive_upload_failures}x), "
-                              f"next retry in {backoff}s")
+                        log.warning(f"Upload failed ({self._consecutive_upload_failures}x), "
+                                    f"next retry in {backoff}s")
                         time.sleep(backoff - self.UPLOAD_INTERVAL)
             except Exception as e:
                 # CRITICAL: catch ALL exceptions so the thread never dies
-                print(f"[agent] Upload loop error (recovering): {e}")
+                log.error(f"Upload loop error (recovering): {e}\n{traceback.format_exc()}")
                 time.sleep(5)
 
     def _control_poll_loop(self):
@@ -214,8 +350,30 @@ class AgentLoop:
                         self.resume()
             except Exception as e:
                 # CRITICAL: catch ALL exceptions so the thread never dies
-                print(f"[agent] control poll error (recovering): {e}")
+                log.error(f"control poll error (recovering): {e}")
                 time.sleep(5)
+
+    def flush_and_stop(self):
+        """Graceful shutdown: upload any remaining buffer, then stop."""
+        log.info("Graceful shutdown — flushing remaining buffer...")
+        self.running = False
+
+        with self.lock:
+            batch = list(self.buffer)
+            self.buffer.clear()
+
+        if batch:
+            log.info(f"Flushing {len(batch)} entries on shutdown...")
+            ok = uploader.post_batch(self.cfg, batch)
+            if ok:
+                log.info("Shutdown flush successful")
+                _clear_buffer_on_disk()
+            else:
+                log.warning("Shutdown flush failed — saving to disk for next startup")
+                _save_buffer_to_disk(batch)
+
+        self.idle_filter.stop()
+        log.info("Agent stopped cleanly")
 
     def stop(self):
         self.running = False
@@ -277,7 +435,7 @@ def _build_tray_icon(loop):
             icon.update_menu()
 
         def on_quit(icon, item):
-            loop.stop()
+            loop.flush_and_stop()
             icon.stop()
 
         def pause_label(item):
@@ -285,7 +443,7 @@ def _build_tray_icon(loop):
 
         # Info items — displayed grayed-out, non-clickable
         user_email = loop.cfg.get('user_email', 'Unknown')
-        version    = '1.4.0'
+        version    = '1.4.1'
 
         def noop(icon, item):
             pass
@@ -314,19 +472,29 @@ def _build_tray_icon(loop):
         icon = pystray.Icon('AITimeKeeper', img, 'AI TimeKeeper', menu)
         return icon
     except Exception as e:
-        print(f"[tray] Could not create tray icon: {e}")
+        log.error(f"Could not create tray icon: {e}")
         return None
 
 
 # ── Entry Point ───────────────────────────────────────────────────────────────
 
 def main():
+    log.info("=" * 60)
+    log.info("AITimeKeeper agent starting (v1.4.1)")
+    log.info(f"Platform: {platform.system()} {platform.release()}")
+    log.info(f"Python: {sys.version}")
+    log.info(f"PID: {os.getpid()}")
+    log.info("=" * 60)
+
     _kill_old_instances()
+
+    # Disable macOS App Nap (CRITICAL — prevents thread suspension)
+    _app_nap_token = _disable_app_nap()
 
     if "--reset-config" in sys.argv:
         if os.path.exists(config.CONFIG_FILE):
             os.remove(config.CONFIG_FILE)
-        print("Config cleared.")
+        log.info("Config cleared.")
 
     cfg = config.load()
 
@@ -346,14 +514,14 @@ def main():
         except KeyboardInterrupt:
             pass
         finally:
-            loop.stop()
+            loop.flush_and_stop()
     else:
         # No tray available — run tracking on main thread directly
         try:
             loop.start()
         except KeyboardInterrupt:
-            print("\n[agent] Stopping...")
-            loop.stop()
+            log.info("Stopping...")
+            loop.flush_and_stop()
 
 
 if __name__ == "__main__":

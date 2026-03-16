@@ -14,7 +14,7 @@ echo ""
 
 # 1. Install dependencies
 echo "▶ Installing Python dependencies..."
-pip3 install pyinstaller pynput requests -q
+pip3 install pyinstaller pynput requests pyobjc-framework-Cocoa -q
 
 # 2. Clean previous build
 rm -rf dist build __pycache__ *.pyc
