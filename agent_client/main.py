@@ -157,18 +157,33 @@ class AgentLoop:
 
 # ── System Tray ───────────────────────────────────────────────────────────────
 
+def _make_icon_image():
+    """Draw a lightning-bolt icon in app-brand indigo using PIL."""
+    from PIL import Image, ImageDraw
+    SIZE = 64
+    img = Image.new('RGBA', (SIZE, SIZE), (0, 0, 0, 0))
+    d = ImageDraw.Draw(img)
+    # Indigo background circle
+    d.ellipse([2, 2, SIZE - 2, SIZE - 2], fill=(79, 70, 229, 255))
+    # White lightning bolt  (simplified polygon matching the app SVG)
+    bolt = [
+        (38, 8),   # top-right tip
+        (24, 30),  # mid-left
+        (34, 30),  # mid-right
+        (26, 56),  # bottom tip
+        (42, 34),  # lower-right
+        (32, 34),  # lower-left
+        (38, 8),   # close
+    ]
+    d.polygon(bolt, fill=(255, 255, 255, 255))
+    return img
+
+
 def _build_tray_icon(loop):
-    """Creates and returns a pystray Icon. Runs in its own thread."""
+    """Creates and returns a pystray Icon (must be run on main thread on macOS)."""
     try:
         import pystray
-        from PIL import Image, ImageDraw
-
-        # Draw a simple clock-face icon (16×16 fallback)
-        img = Image.new('RGBA', (64, 64), (0, 0, 0, 0))
-        d = ImageDraw.Draw(img)
-        d.ellipse([4, 4, 60, 60], fill='#4F46E5')
-        d.line([32, 32, 32, 14], fill='white', width=4)   # hour hand
-        d.line([32, 32, 46, 38], fill='white', width=3)   # minute hand
+        img = _make_icon_image()
 
         def on_pause_resume(icon, item):
             if loop.paused:
@@ -229,19 +244,25 @@ def main():
 
     loop = AgentLoop(cfg)
 
-    # Start tray icon in a background thread; tracking loop runs on main thread
     tray_icon = _build_tray_icon(loop)
     if tray_icon:
-        tray_thread = threading.Thread(target=tray_icon.run, daemon=True)
-        tray_thread.start()
-
-    try:
-        loop.start()   # blocks on _track_loop
-    except KeyboardInterrupt:
-        print("\n[agent] Stopping...")
-        loop.stop()
-        if tray_icon:
-            tray_icon.stop()
+        # On macOS pystray MUST run on the main thread.
+        # Move the tracking loop to a background thread instead.
+        tracking_thread = threading.Thread(target=loop.start, daemon=True)
+        tracking_thread.start()
+        try:
+            tray_icon.run()   # blocks on main thread — required by macOS
+        except KeyboardInterrupt:
+            pass
+        finally:
+            loop.stop()
+    else:
+        # No tray available — run tracking on main thread directly
+        try:
+            loop.start()
+        except KeyboardInterrupt:
+            print("\n[agent] Stopping...")
+            loop.stop()
 
 
 if __name__ == "__main__":

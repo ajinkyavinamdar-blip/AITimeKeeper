@@ -20,7 +20,7 @@ a = Analysis(
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],
-    excludes=['tkinter', 'matplotlib', 'numpy', 'scipy', 'PIL'],
+    excludes=['tkinter', 'matplotlib', 'numpy', 'scipy'],
     noarchive=False,
 )
 
@@ -59,7 +59,7 @@ if sys.platform == 'darwin':
             'NSPrincipalClass': 'NSApplication',
             'LSBackgroundOnly': True,
             'LSUIElement': True,           # hide from Dock
-            'CFBundleShortVersionString': '1.0.0',
+            'CFBundleShortVersionString': '1.2.0',
             'CFBundleName': 'AITimeKeeper',
             'NSAppleEventsUsageDescription': 'Required to detect active app and window for time tracking.',
             'NSMicrophoneUsageDescription': 'Not used.',
