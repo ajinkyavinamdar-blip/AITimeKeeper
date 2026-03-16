@@ -7,14 +7,27 @@ import sys, os, json, mimetypes
 import urllib.request, urllib.error
 
 REPO = "ajinkyavinamdar-blip/AITimeKeeper"
-TAG = "v1.0.0"
-RELEASE_NAME = "v1.0.0 — Desktop Agent"
-RELEASE_BODY = """## AI TimeKeeper Desktop Agent v1.0.0
+TAG = "v1.3.0"
+RELEASE_NAME = "v1.3.0 — Single-Instance Guard + Agent Health Monitoring"
+RELEASE_BODY = """## AI TimeKeeper Desktop Agent v1.3.0
+
+### What's New
+
+**Single-Instance Guard**
+- App now automatically kills any older running instances on launch
+- No more duplicate processes causing duplicate activity logs
+
+**Agent Health Monitoring (Admin)**
+- New "Agent Health" tab in Admin Panel
+- Real-time per-user agent status: Online / Delayed / Offline / Never Connected
+- Auto-refreshes every 30 seconds
+
+**WhatsApp Fix**
+- Fixed invisible Unicode characters in macOS app names that prevented category matching
 
 ### Download & Install
-- **Mac**: Download the `.zip`, unzip, then double-click `AITimeKeeper.app`
+- **Mac**: Download `AITimeKeeper-Mac-1.3.0.zip`, unzip, drag to Applications
   - First time: right-click → Open (to bypass Gatekeeper)
-- **Windows**: (coming soon — requires Windows build machine)
 
 ### First Run
 When you open the agent for the first time, it will ask you:
@@ -22,15 +35,10 @@ When you open the agent for the first time, it will ask you:
 2. Your work email address
 
 It will automatically fetch your API token and start tracking.
-
-### What it does
-- Records active app + window title every 5 seconds
-- Uploads anonymised activity logs to the dashboard every 30 seconds
-- Stops recording when you're idle for 3+ minutes
 """
 
 DIST_DIR = os.path.join(os.path.dirname(__file__), "dist")
-MAC_ZIP = os.path.join(DIST_DIR, "AITimeKeeper-Mac-1.0.0.zip")
+MAC_ZIP = os.path.join(DIST_DIR, "AITimeKeeper-Mac-1.3.0.zip")
 
 def gh_request(token, method, path, data=None, binary=None, content_type="application/json"):
     url = f"https://api.github.com{path}"
