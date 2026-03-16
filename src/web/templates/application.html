@@ -36,13 +36,13 @@
                 }
             }
 
-            function updateGlobalStatus(status) {
+            window.updateGlobalStatus = function updateGlobalStatus(status) {
                 const el = document.getElementById('global-status');
                 if (el) {
                     el.innerText = status.toUpperCase();
                     el.className = `text-xs font-bold px-2 ${status === 'running' ? 'text-emerald-500' : 'text-amber-500'}`;
                 }
-            }
+            };
 
             // Check status every 10s
             setInterval(checkGlobalStatus, 10000);
