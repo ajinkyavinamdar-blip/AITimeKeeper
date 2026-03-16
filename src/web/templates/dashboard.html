@@ -270,6 +270,8 @@
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
     // --- Global State ---
+    // trackingStatus: 'running' | 'paused' | 'break' | 'stopped' | 'unknown'
+    let trackingStatus = 'unknown';
     let isTracking = true;
     let isBreak = false;
     let sessionStartTs = null;
@@ -320,12 +322,29 @@
 
     // --- Controls Logic ---
     async function toggleTracking() {
+        if (trackingStatus === 'stopped' || trackingStatus === 'unknown') return; // agent offline
         const action = isTracking ? 'pause' : 'resume';
         const res = await fetch(`/api/control/${action}`, { method: 'POST' });
-        if (res.ok) fetchStats();
+        if (res.ok) {
+            // Optimistically update state so button doesn't flicker before next poll
+            trackingStatus = action === 'pause' ? 'paused' : 'running';
+            isTracking = (trackingStatus === 'running');
+            const trackBtn = document.getElementById('tracking-toggle-btn');
+            if (isTracking) {
+                trackBtn.innerText = 'Disable Tracking';
+                trackBtn.className = "w-full bg-red-600 hover:bg-red-500 text-white text-xs font-bold py-2 px-4 rounded transition-colors";
+            } else {
+                trackBtn.innerText = 'Resume Tracking';
+                trackBtn.className = "w-full bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold py-2 px-4 rounded transition-colors";
+            }
+            if (window.updateGlobalStatus) window.updateGlobalStatus(trackingStatus);
+            // Full refresh in background
+            setTimeout(fetchStats, 2000);
+        }
     }
 
     async function toggleBreak() {
+        if (trackingStatus === 'stopped' || trackingStatus === 'unknown') return;
         const action = isBreak ? 'break_end' : 'break_start';
         const res = await fetch(`/api/control/${action}`, { method: 'POST' });
         if (res.ok) fetchStats();
@@ -516,13 +535,12 @@
             }
 
             // Sync session & timers
-            isTracking = statusData.status === 'running';
-            isBreak = statusData.status === 'break' || statusData.status === 'paused';
+            trackingStatus = statusData.status;   // 'running'|'paused'|'break'|'stopped'|'unknown'
+            isTracking = trackingStatus === 'running';
+            isBreak    = trackingStatus === 'break';
             sessionStartTs = statusData.session_start;  // agent local time string
 
             // server_time is now ISO UTC — compute offset to align break timer
-            // sessionStartTs is agent local time (same TZ as user's browser), so we
-            // compute elapsed on the server to avoid TZ mismatch
             if (statusData.server_time) {
                 const serverDate = new Date(statusData.server_time); // parses ISO UTC correctly
                 serverTimeOffset = serverDate.getTime() - Date.now();
@@ -531,16 +549,38 @@
             const trackBtn = document.getElementById('tracking-toggle-btn');
             const breakBtn = document.getElementById('break-toggle-btn');
 
-            if (isTracking) {
+            if (trackingStatus === 'running') {
+                // Agent is active — show Disable + Start Break
                 trackBtn.innerText = 'Disable Tracking';
                 trackBtn.className = "w-full bg-red-600 hover:bg-red-500 text-white text-xs font-bold py-2 px-4 rounded transition-colors";
+                trackBtn.disabled = false;
                 breakBtn.innerText = 'Start Break';
                 breakBtn.className = "w-full bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold py-2 px-4 rounded transition-colors";
-            } else {
+                breakBtn.disabled = false;
+            } else if (trackingStatus === 'paused') {
+                // Agent is connected but paused by user — show Resume
                 trackBtn.innerText = 'Resume Tracking';
                 trackBtn.className = "w-full bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold py-2 px-4 rounded transition-colors";
+                trackBtn.disabled = false;
+                breakBtn.innerText = 'Start Break';
+                breakBtn.className = "w-full bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold py-2 px-4 rounded transition-colors";
+                breakBtn.disabled = false;
+            } else if (trackingStatus === 'break') {
+                // On a break
+                trackBtn.innerText = 'Disable Tracking';
+                trackBtn.className = "w-full bg-red-600 hover:bg-red-500 text-white text-xs font-bold py-2 px-4 rounded transition-colors";
+                trackBtn.disabled = false;
                 breakBtn.innerText = 'End Break';
                 breakBtn.className = "w-full bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold py-2 px-4 rounded transition-colors";
+                breakBtn.disabled = false;
+            } else {
+                // 'stopped' or 'unknown' — agent not connected
+                trackBtn.innerText = 'Agent Not Connected';
+                trackBtn.className = "w-full bg-slate-700 text-slate-400 text-xs font-bold py-2 px-4 rounded cursor-not-allowed";
+                trackBtn.disabled = true;
+                breakBtn.innerText = 'Start Break';
+                breakBtn.className = "w-full bg-slate-700 text-slate-400 text-xs font-bold py-2 px-4 rounded cursor-not-allowed";
+                breakBtn.disabled = true;
             }
 
             // Keep the global header badge in sync whenever fetchStats runs

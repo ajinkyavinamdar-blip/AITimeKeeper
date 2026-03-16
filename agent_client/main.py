@@ -216,8 +216,18 @@ def _build_tray_icon(loop):
         def pause_label(item):
             return 'Resume Tracking' if loop.paused else 'Pause Tracking'
 
+        # Info items — displayed grayed-out, non-clickable
+        user_email = loop.cfg.get('user_email', 'Unknown')
+        version    = '1.2.1'
+
+        def noop(icon, item):
+            pass
+
         menu = pystray.Menu(
             pystray.MenuItem(pause_label, on_pause_resume),
+            pystray.Menu.SEPARATOR,
+            pystray.MenuItem(f'User: {user_email}', noop, enabled=False),
+            pystray.MenuItem(f'Version {version}',  noop, enabled=False),
             pystray.Menu.SEPARATOR,
             pystray.MenuItem('Quit AITimeKeeper', on_quit),
         )
