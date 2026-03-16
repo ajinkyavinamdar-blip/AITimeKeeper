@@ -59,7 +59,7 @@ if sys.platform == 'darwin':
             'NSPrincipalClass': 'NSApplication',
             'LSBackgroundOnly': True,
             'LSUIElement': True,           # hide from Dock
-            'CFBundleShortVersionString': '1.2.1',
+            'CFBundleShortVersionString': '1.3.0',
             'CFBundleName': 'AITimeKeeper',
             'NSAppleEventsUsageDescription': 'Required to detect active app and window for time tracking.',
             'NSMicrophoneUsageDescription': 'Not used.',

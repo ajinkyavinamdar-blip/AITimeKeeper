@@ -247,7 +247,7 @@ def _build_tray_icon(loop):
 
         # Info items — displayed grayed-out, non-clickable
         user_email = loop.cfg.get('user_email', 'Unknown')
-        version    = '1.2.1'
+        version    = '1.3.0'
 
         def noop(icon, item):
             pass
