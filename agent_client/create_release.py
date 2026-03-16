@@ -7,26 +7,28 @@ import sys, os, json, mimetypes
 import urllib.request, urllib.error
 
 REPO = "ajinkyavinamdar-blip/AITimeKeeper"
-TAG = "v1.3.0"
-RELEASE_NAME = "v1.3.0 — Single-Instance Guard + Agent Health Monitoring"
-RELEASE_BODY = """## AI TimeKeeper Desktop Agent v1.3.0
+TAG = "v1.4.0"
+RELEASE_NAME = "v1.4.0 — Bulletproof Upload Resilience"
+RELEASE_BODY = """## AI TimeKeeper Desktop Agent v1.4.0
 
 ### What's New
 
-**Single-Instance Guard**
-- App now automatically kills any older running instances on launch
-- No more duplicate processes causing duplicate activity logs
+**Bulletproof Upload Resilience**
+- Agent threads now auto-restart if they crash — no more silent log flow stops
+- Watchdog thread monitors upload and control threads, restarts dead ones
+- Upload retries 3x with exponential backoff before queuing offline
+- Timeout increased to 30s to handle Render cold starts gracefully
 
-**Agent Health Monitoring (Admin)**
-- New "Agent Health" tab in Admin Panel
-- Real-time per-user agent status: Online / Delayed / Offline / Never Connected
-- Auto-refreshes every 30 seconds
+**Tray Upload Health**
+- Tray menu now shows upload status: ✓ last upload time or ⚠ failure count
+- Users can see at a glance if their logs are flowing
 
-**WhatsApp Fix**
-- Fixed invisible Unicode characters in macOS app names that prevented category matching
+**Server-Side Batch Inserts**
+- Activity logs now inserted in a single DB transaction (was 1 connection per row)
+- Faster, more reliable, fewer chances of partial failures
 
 ### Download & Install
-- **Mac**: Download `AITimeKeeper-Mac-1.3.0.zip`, unzip, drag to Applications
+- **Mac**: Download `AITimeKeeper-Mac-1.4.0.zip`, unzip, drag to Applications
   - First time: right-click → Open (to bypass Gatekeeper)
 
 ### First Run
@@ -38,7 +40,7 @@ It will automatically fetch your API token and start tracking.
 """
 
 DIST_DIR = os.path.join(os.path.dirname(__file__), "dist")
-MAC_ZIP = os.path.join(DIST_DIR, "AITimeKeeper-Mac-1.3.0.zip")
+MAC_ZIP = os.path.join(DIST_DIR, "AITimeKeeper-Mac-1.4.0.zip")
 
 def gh_request(token, method, path, data=None, binary=None, content_type="application/json"):
     url = f"https://api.github.com{path}"

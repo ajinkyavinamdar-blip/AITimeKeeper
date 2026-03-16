@@ -498,6 +498,51 @@ def log_activity(activity_data):
         release_db_connection(conn)
 
 
+def log_activities_batch(entries):
+    """Insert multiple activity rows in a single DB connection + transaction.
+
+    Much more efficient and resilient than calling log_activity() per row,
+    especially over SSL connections to Supabase / Render.
+    Returns the number of rows successfully inserted.
+    """
+    if not entries:
+        return 0
+    conn = get_db_connection()
+    try:
+        c = conn.cursor()
+        from psycopg2.extras import execute_values
+        values = [
+            (
+                e.get('timestamp'),
+                e.get('app_name'),
+                e.get('window_title'),
+                e.get('url_or_filename'),
+                e.get('chrome_profile'),
+                e.get('client', 'Unassigned'),
+                e.get('duration', 0),
+                e.get('category_id'),
+                e.get('user_email'),
+            )
+            for e in entries
+        ]
+        execute_values(
+            c,
+            '''INSERT INTO activities
+               (timestamp, app_name, window_title, url_or_filename,
+                chrome_profile, client, duration, category_id, user_email)
+               VALUES %s''',
+            values,
+        )
+        conn.commit()
+        return len(values)
+    except Exception as e:
+        conn.rollback()
+        print(f"[db] Batch insert failed: {e}")
+        raise
+    finally:
+        release_db_connection(conn)
+
+
 def get_api_token(user_email):
     conn = get_db_connection()
     try:

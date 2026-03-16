@@ -15,7 +15,7 @@ from ..database import (
     # Category admin
     update_category_full, add_category, update_category_billable,
     # Token management
-    get_api_token, rotate_api_token, get_user_email_by_token, log_activity,
+    get_api_token, rotate_api_token, get_user_email_by_token, log_activity, log_activities_batch,
     # Pause/resume
     set_user_paused, get_user_paused,
     # Agent health
@@ -733,16 +733,16 @@ def api_ingest():
     if not isinstance(logs, list):
         return jsonify({'error': 'logs must be a list'}), 400
 
-    accepted = 0
     cat_mapper, cli_mapper = _get_mappers()
 
+    # ── Resolve client + category for each row (in-memory, no DB) ─────────
     for entry in logs:
         try:
-            app_name    = entry.get('app_name', '')
+            app_name     = entry.get('app_name', '')
             window_title = entry.get('window_title', '')
-            url         = entry.get('url_or_filename', '')
+            url          = entry.get('url_or_filename', '')
 
-            # ── Client resolution (Zoho Org ID → pattern rules → existing value) ──
+            # Client resolution (Zoho Org ID → pattern rules → existing value)
             if not entry.get('client') or entry.get('client') == 'Unassigned':
                 try:
                     resolved_client = cli_mapper.resolve(app_name, window_title, url)
@@ -751,7 +751,7 @@ def api_ingest():
                 except Exception as ce:
                     print(f'[ingest] client_mapper error: {ce}')
 
-            # ── Category resolution (rules → heuristics → AI fallback) ────────────
+            # Category resolution (rules → heuristics → AI fallback)
             if not entry.get('category_id'):
                 try:
                     _, cat_id = cat_mapper.resolve(app_name, window_title, url)
@@ -761,14 +761,29 @@ def api_ingest():
                     print(f'[ingest] category_mapper error: {ce}')
 
             entry['user_email'] = user_email
-            log_activity(entry)
-            accepted += 1
         except Exception as e:
-            print(f"[ingest] Failed to write log entry: {e}")
+            print(f"[ingest] Entry resolution error: {e}")
+
+    # ── Batch insert all rows in a single DB transaction ──────────────────
+    try:
+        accepted = log_activities_batch(logs)
+    except Exception as e:
+        # Fallback: try one-by-one if batch fails
+        print(f"[ingest] Batch insert failed ({e}), falling back to row-by-row")
+        accepted = 0
+        for entry in logs:
+            try:
+                log_activity(entry)
+                accepted += 1
+            except Exception as row_err:
+                print(f"[ingest] Row insert failed: {row_err}")
 
     # Update heartbeat so admin can monitor agent health per user
     if accepted > 0:
-        update_agent_heartbeat(user_email)
+        try:
+            update_agent_heartbeat(user_email)
+        except Exception as hb_err:
+            print(f"[ingest] Heartbeat update failed: {hb_err}")
 
     return jsonify({'accepted': accepted})
 

@@ -1,13 +1,22 @@
 """
 uploader.py — POSTs activity batches to /api/ingest.
 Stores failed batches in ~/.aitimekeeper/offline_queue.json for retry.
+
+Resilience features:
+- 3 retries with exponential backoff per upload attempt
+- 30s timeout (handles Render free-tier cold starts)
+- Offline queue for persistent retry across restarts
+- Queue cap (10,000 rows) to prevent unbounded disk growth
 """
 import json
 import os
+import time
 import requests
 
 OFFLINE_QUEUE_FILE = os.path.join(os.path.expanduser("~"), ".aitimekeeper", "offline_queue.json")
-TIMEOUT = 10  # seconds
+TIMEOUT = 30          # seconds — Render cold start can take 20-30s
+MAX_RETRIES = 3       # attempts per upload
+MAX_QUEUE_SIZE = 10000  # max rows in offline queue
 
 
 def post_batch(cfg: dict, logs: list) -> bool:
@@ -24,30 +33,49 @@ def post_batch(cfg: dict, logs: list) -> bool:
     # First try to drain any buffered offline queue
     _drain_queue(cfg)
 
-    try:
-        resp = requests.post(
-            f"{server_url}/api/ingest",
-            headers={"Authorization": f"Bearer {token}", "Content-Type": "application/json"},
-            json={"logs": logs},
-            timeout=TIMEOUT,
-        )
-        if resp.status_code == 401:
-            print("[uploader] Auth failed — check your API token in ~/.aitimekeeper/config.json")
-            return False
-        resp.raise_for_status()
-        result = resp.json()
-        print(f"[uploader] Uploaded {result.get('accepted', '?')} rows")
-        return True
-    except Exception as e:
-        print(f"[uploader] Upload failed ({e}), queuing offline")
-        _append_to_queue(logs)
-        return False
+    # Retry loop with exponential backoff
+    last_err = None
+    for attempt in range(1, MAX_RETRIES + 1):
+        try:
+            resp = requests.post(
+                f"{server_url}/api/ingest",
+                headers={"Authorization": f"Bearer {token}", "Content-Type": "application/json"},
+                json={"logs": logs},
+                timeout=TIMEOUT,
+            )
+            if resp.status_code == 401:
+                print("[uploader] Auth failed — check your API token in ~/.aitimekeeper/config.json")
+                return False
+            resp.raise_for_status()
+            result = resp.json()
+            accepted = result.get('accepted', '?')
+            if attempt > 1:
+                print(f"[uploader] Uploaded {accepted} rows (succeeded on attempt {attempt})")
+            else:
+                print(f"[uploader] Uploaded {accepted} rows")
+            return True
+        except Exception as e:
+            last_err = e
+            if attempt < MAX_RETRIES:
+                wait = 2 ** attempt  # 2s, 4s
+                print(f"[uploader] Attempt {attempt}/{MAX_RETRIES} failed ({e}), retrying in {wait}s...")
+                time.sleep(wait)
+
+    # All retries exhausted — queue offline
+    print(f"[uploader] All {MAX_RETRIES} attempts failed ({last_err}), queuing {len(logs)} rows offline")
+    _append_to_queue(logs)
+    return False
 
 
 def _append_to_queue(logs: list):
-    """Persist failed logs to the offline queue file."""
+    """Persist failed logs to the offline queue file (capped)."""
     existing = _load_queue()
     existing.extend(logs)
+    # Cap queue size — keep newest rows
+    if len(existing) > MAX_QUEUE_SIZE:
+        dropped = len(existing) - MAX_QUEUE_SIZE
+        existing = existing[-MAX_QUEUE_SIZE:]
+        print(f"[uploader] Offline queue capped: dropped {dropped} oldest rows")
     os.makedirs(os.path.dirname(OFFLINE_QUEUE_FILE), exist_ok=True)
     with open(OFFLINE_QUEUE_FILE, "w") as f:
         json.dump(existing, f)

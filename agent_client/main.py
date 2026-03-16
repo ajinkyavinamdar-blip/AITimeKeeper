@@ -93,6 +93,7 @@ class AgentLoop:
     POLL_INTERVAL = 5      # seconds between activity checks
     UPLOAD_INTERVAL = 30   # seconds between batch uploads
     CONTROL_POLL_INTERVAL = 30  # seconds between checking server pause state
+    WATCHDOG_INTERVAL = 60  # seconds between thread health checks
 
     def __init__(self, cfg):
         self.cfg = cfg
@@ -102,6 +103,9 @@ class AgentLoop:
         self.paused = False   # controlled by tray menu OR server poll
         self.observer = _get_observer()
         self.idle_filter = IdleFilter()
+        self._consecutive_upload_failures = 0
+        self._last_successful_upload = None  # timestamp of last good upload
+        self._threads = {}  # name → thread, for watchdog
 
     def pause(self):
         self.paused = True
@@ -115,14 +119,29 @@ class AgentLoop:
         self.running = True
         self.idle_filter.start()
 
-        upload_thread = threading.Thread(target=self._upload_loop, daemon=True)
-        upload_thread.start()
-
-        control_thread = threading.Thread(target=self._control_poll_loop, daemon=True)
-        control_thread.start()
+        self._start_thread('upload', self._upload_loop)
+        self._start_thread('control', self._control_poll_loop)
+        self._start_thread('watchdog', self._watchdog_loop)
 
         print(f"[agent] Tracking started for {self.cfg['user_email']}")
         self._track_loop()
+
+    def _start_thread(self, name, target):
+        """Start a named daemon thread, tracked for watchdog restarts."""
+        t = threading.Thread(target=target, daemon=True, name=f'agent-{name}')
+        t.start()
+        self._threads[name] = (t, target)
+
+    def _watchdog_loop(self):
+        """Monitors critical threads and restarts any that have died."""
+        while self.running:
+            time.sleep(self.WATCHDOG_INTERVAL)
+            for name, (thread, target) in list(self._threads.items()):
+                if name == 'watchdog':
+                    continue  # don't watch ourselves
+                if not thread.is_alive():
+                    print(f"[watchdog] Thread '{name}' died — restarting")
+                    self._start_thread(name, target)
 
     def _track_loop(self):
         while self.running:
@@ -147,27 +166,44 @@ class AgentLoop:
 
     def _upload_loop(self):
         while self.running:
-            time.sleep(self.UPLOAD_INTERVAL)
-            if self.paused:
-                continue
-            with self.lock:
-                batch = list(self.buffer)
-                self.buffer.clear()
-            if batch:
-                uploader.post_batch(self.cfg, batch)
+            try:
+                time.sleep(self.UPLOAD_INTERVAL)
+                if self.paused:
+                    continue
+                with self.lock:
+                    batch = list(self.buffer)
+                    self.buffer.clear()
+                if batch:
+                    ok = uploader.post_batch(self.cfg, batch)
+                    if ok:
+                        self._consecutive_upload_failures = 0
+                        self._last_successful_upload = time.time()
+                    else:
+                        self._consecutive_upload_failures += 1
+                        # Exponential backoff: wait extra time on repeated failures
+                        # 30s, 60s, 120s, max 300s between attempts
+                        backoff = min(self.UPLOAD_INTERVAL * (2 ** self._consecutive_upload_failures),
+                                      300)
+                        print(f"[agent] Upload failed ({self._consecutive_upload_failures}x), "
+                              f"next retry in {backoff}s")
+                        time.sleep(backoff - self.UPLOAD_INTERVAL)
+            except Exception as e:
+                # CRITICAL: catch ALL exceptions so the thread never dies
+                print(f"[agent] Upload loop error (recovering): {e}")
+                time.sleep(5)
 
     def _control_poll_loop(self):
         """Periodically asks the server whether this user's tracking is paused."""
         import requests
         while self.running:
-            time.sleep(self.CONTROL_POLL_INTERVAL)
             try:
+                time.sleep(self.CONTROL_POLL_INTERVAL)
                 server_url = self.cfg.get('server_url', '').rstrip('/')
                 token = self.cfg.get('api_token', '')
                 resp = requests.get(
                     f"{server_url}/api/agent/poll",
                     headers={"Authorization": f"Bearer {token}"},
-                    timeout=10,
+                    timeout=15,
                 )
                 if resp.status_code == 200:
                     data = resp.json()
@@ -177,7 +213,9 @@ class AgentLoop:
                     elif not server_paused and self.paused:
                         self.resume()
             except Exception as e:
-                print(f"[agent] control poll error: {e}")
+                # CRITICAL: catch ALL exceptions so the thread never dies
+                print(f"[agent] control poll error (recovering): {e}")
+                time.sleep(5)
 
     def stop(self):
         self.running = False
@@ -247,14 +285,27 @@ def _build_tray_icon(loop):
 
         # Info items — displayed grayed-out, non-clickable
         user_email = loop.cfg.get('user_email', 'Unknown')
-        version    = '1.3.0'
+        version    = '1.4.0'
 
         def noop(icon, item):
             pass
 
+        def upload_status(item):
+            if loop._consecutive_upload_failures > 0:
+                return f'⚠ Upload failing ({loop._consecutive_upload_failures}x)'
+            elif loop._last_successful_upload:
+                ago = int(time.time() - loop._last_successful_upload)
+                if ago < 60:
+                    return f'✓ Last upload: {ago}s ago'
+                else:
+                    return f'✓ Last upload: {ago // 60}m ago'
+            else:
+                return '⏳ Waiting for first upload...'
+
         menu = pystray.Menu(
             pystray.MenuItem(pause_label, on_pause_resume),
             pystray.Menu.SEPARATOR,
+            pystray.MenuItem(upload_status, noop, enabled=False),
             pystray.MenuItem(f'User: {user_email}', noop, enabled=False),
             pystray.MenuItem(f'Version {version}',  noop, enabled=False),
             pystray.Menu.SEPARATOR,
