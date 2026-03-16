@@ -18,8 +18,8 @@ SEED_ADMIN_NAME = 'Ajinkya'
 def get_db_connection():
     if not DB_URL:
         raise ValueError("DATABASE_URL environment variable is not set")
-    # For connection pools/URI
-    conn = psycopg2.connect(DB_URL)
+    # For connection pools/URI, explicitly handling encoding for Supabase pooler
+    conn = psycopg2.connect(DB_URL, client_encoding='utf8', options='-c client_encoding=utf8')
     conn.autocommit = False
     return conn
 
