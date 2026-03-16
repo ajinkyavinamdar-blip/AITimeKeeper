@@ -34,7 +34,21 @@ def get_db_connection():
     p = _get_pool()
     if p:
         conn = p.getconn()
-        conn.autocommit = False
+        # Validate the connection — Supabase/PgBouncer may have closed
+        # idle SSL connections, leaving a dead socket in the pool.
+        try:
+            conn.autocommit = False
+            cur = conn.cursor()
+            cur.execute("SELECT 1")
+            cur.close()
+        except Exception:
+            # Connection is dead — discard it and create a fresh one
+            try:
+                p.putconn(conn, close=True)
+            except Exception:
+                pass
+            conn = p.getconn()
+            conn.autocommit = False
         return conn
     # Fallback: direct connection
     url = DB_URL.strip().strip('"').strip("'")
@@ -43,13 +57,19 @@ def get_db_connection():
     return conn
 
 def release_db_connection(conn):
-    """Return a connection to the pool (call instead of conn.close())."""
+    """Return a connection to the pool (call instead of conn.close()).
+    If the connection is broken, discard it so the pool creates a fresh one."""
     p = _get_pool()
     if p and conn:
         try:
             conn.rollback()  # ensure clean state
         except Exception:
-            pass
+            # Connection is broken — discard it from the pool
+            try:
+                p.putconn(conn, close=True)
+            except Exception:
+                pass
+            return
         p.putconn(conn)
     elif conn:
         conn.close()
