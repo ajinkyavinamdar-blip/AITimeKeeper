@@ -27,8 +27,16 @@
                         </path>
                     </svg>
                 </button>
-                <div id="day-label" class="px-3 text-[10px] font-bold text-slate-300 uppercase tracking-widest">Today
+                <div id="day-label" onclick="openDatePicker()"
+                    class="px-3 text-[10px] font-bold text-slate-300 uppercase tracking-widest cursor-pointer hover:text-indigo-400 transition-colors flex items-center gap-1">
+                    <span id="day-label-text">Today</span>
+                    <svg class="w-3 h-3 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+                    </svg>
                 </div>
+                <!-- Hidden date/month pickers triggered by clicking the label -->
+                <input type="date" id="date-jump-input" class="sr-only" />
+                <input type="month" id="month-jump-input" class="sr-only" />
                 <button onclick="changeDay(1)"
                     class="p-1.5 hover:bg-slate-700/50 rounded-lg transition-colors text-slate-400">
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -42,6 +50,8 @@
                     class="px-4 py-1.5 text-[10px] font-bold rounded-lg bg-indigo-600 text-white shadow-lg shadow-indigo-500/20 transition-all">Day</button>
                 <button id="toggle-week" onclick="setMode('week')"
                     class="px-4 py-1.5 text-[10px] font-bold rounded-lg text-slate-500 hover:text-slate-300 transition-all">Week</button>
+                <button id="toggle-month" onclick="setMode('month')"
+                    class="px-4 py-1.5 text-[10px] font-bold rounded-lg text-slate-500 hover:text-slate-300 transition-all">Month</button>
             </div>
         </div>
     </div>
@@ -86,7 +96,7 @@
             class="col-span-1 lg:col-span-3 bg-slate-800/50 rounded-2xl p-6 border border-slate-700/50 backdrop-blur-sm flex flex-col">
             <div class="flex justify-between items-center mb-4">
                 <h3 class="text-xs font-semibold text-slate-400 uppercase tracking-wider">Timeline</h3>
-                <div class="text-xs text-slate-500">Hourly Focus & Comms</div>
+                <div class="text-xs text-slate-500" id="timeline-subtitle">Hourly Focus & Comms</div>
             </div>
             <div class="flex-1 w-full h-40">
                 <canvas id="timelineChart"></canvas>
@@ -290,16 +300,36 @@
     function updateDateHeader() {
         const d = new Date();
         d.setDate(d.getDate() + dateOffset);
-        const options = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
-        document.getElementById('dashboard-date').innerText = d.toLocaleDateString('en-US', options);
+        const el = document.getElementById('dashboard-date');
+
+        if (viewMode === 'month') {
+            el.innerText = d.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+        } else if (viewMode === 'week') {
+            // Show Mon–Sun range for the viewed week
+            const day = d.getDay();
+            const mon = new Date(d); mon.setDate(d.getDate() - ((day + 6) % 7));
+            const sun = new Date(mon); sun.setDate(mon.getDate() + 6);
+            const fmt = { month: 'short', day: 'numeric' };
+            const yearFmt = { month: 'short', day: 'numeric', year: 'numeric' };
+            el.innerText = `${mon.toLocaleDateString('en-US', fmt)} – ${sun.toLocaleDateString('en-US', yearFmt)}`;
+        } else {
+            el.innerText = d.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+        }
     }
 
     function changeDay(delta) {
         if (viewMode === 'day') {
             dateOffset += delta;
-        } else {
-            // Jump by 7 days
+        } else if (viewMode === 'week') {
             dateOffset += delta * 7;
+        } else {
+            // month: shift by one calendar month
+            const d = new Date();
+            d.setDate(d.getDate() + dateOffset);
+            d.setMonth(d.getMonth() + delta);
+            d.setDate(1);
+            const today = new Date(); today.setHours(0,0,0,0);
+            dateOffset = Math.round((d - today) / 86400000);
         }
         updateDateHeader();
         fetchStats();
@@ -307,16 +337,21 @@
 
     function setMode(mode) {
         viewMode = mode;
-        const dayBtn = document.getElementById('toggle-day');
-        const weekBtn = document.getElementById('toggle-week');
+        const active   = "px-4 py-1.5 text-[10px] font-bold rounded-lg bg-indigo-600 text-white shadow-lg shadow-indigo-500/20 transition-all";
+        const inactive = "px-4 py-1.5 text-[10px] font-bold rounded-lg text-slate-500 hover:text-slate-300 transition-all";
+        document.getElementById('toggle-day').className   = mode === 'day'   ? active : inactive;
+        document.getElementById('toggle-week').className  = mode === 'week'  ? active : inactive;
+        document.getElementById('toggle-month').className = mode === 'month' ? active : inactive;
 
-        if (mode === 'day') {
-            dayBtn.className = "px-3 py-1 text-[10px] font-bold rounded-md bg-indigo-600 text-white transition-all";
-            weekBtn.className = "px-3 py-1 text-[10px] font-bold rounded-md text-slate-400 hover:text-white transition-all";
-        } else {
-            weekBtn.className = "px-3 py-1 text-[10px] font-bold rounded-md bg-indigo-600 text-white transition-all";
-            dayBtn.className = "px-3 py-1 text-[10px] font-bold rounded-md text-slate-400 hover:text-white transition-all";
+        // When entering month mode, snap dateOffset to 1st of the viewed month
+        if (mode === 'month') {
+            const d = new Date();
+            d.setDate(d.getDate() + dateOffset);
+            d.setDate(1);
+            const today = new Date(); today.setHours(0,0,0,0);
+            dateOffset = Math.round((d - today) / 86400000);
         }
+        updateDateHeader();
         fetchStats();
     }
 
@@ -422,6 +457,8 @@
     }
 
     function initTimelineChart(timelineData) {
+        const sub = document.getElementById('timeline-subtitle');
+        if (sub) sub.innerText = viewMode === 'day' ? 'Hourly Focus & Comms' : viewMode === 'week' ? 'Daily Focus & Comms' : 'Daily Focus & Comms';
         const ctx = document.getElementById('timelineChart').getContext('2d');
         if (timelineChartInstance) timelineChartInstance.destroy();
 
@@ -450,7 +487,7 @@
                     y: {
                         stacked: true,
                         beginAtZero: true,
-                        max: viewMode === 'day' ? 3600 : null, // Auto-scale for week
+                        max: viewMode === 'day' ? 3600 : null, // Auto-scale for week/month
                         grid: { color: '#334155', borderDash: [2, 2] },
                         ticks: {
                             color: '#64748b',
@@ -488,6 +525,46 @@
         // No client chart anymore - using list
     }
 
+    // --- Date Picker ---
+
+    function openDatePicker() {
+        const d = new Date();
+        d.setDate(d.getDate() + dateOffset);
+        if (viewMode === 'month') {
+            const inp = document.getElementById('month-jump-input');
+            inp.value = d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0');
+            try { inp.showPicker(); } catch(_) { inp.click(); }
+        } else {
+            const inp = document.getElementById('date-jump-input');
+            inp.value = d.toISOString().split('T')[0];
+            try { inp.showPicker(); } catch(_) { inp.click(); }
+        }
+    }
+
+    document.getElementById('date-jump-input').addEventListener('change', function(e) {
+        const picked = new Date(e.target.value + 'T00:00:00');
+        const today  = new Date(); today.setHours(0,0,0,0);
+        let diff = Math.round((picked - today) / 86400000);
+        if (viewMode === 'week') {
+            // Snap to Monday of the picked week
+            const day = picked.getDay();
+            const mon = new Date(picked); mon.setDate(picked.getDate() - ((day + 6) % 7));
+            diff = Math.round((mon - today) / 86400000);
+        }
+        dateOffset = diff;
+        updateDateHeader();
+        fetchStats();
+    });
+
+    document.getElementById('month-jump-input').addEventListener('change', function(e) {
+        const [year, month] = e.target.value.split('-').map(Number);
+        const first = new Date(year, month - 1, 1);
+        const today = new Date(); today.setHours(0,0,0,0);
+        dateOffset = Math.round((first - today) / 86400000);
+        updateDateHeader();
+        fetchStats();
+    });
+
     // --- Data Fetching ---
 
     function getCurrentDateStr() {
@@ -523,15 +600,26 @@
             const timelineData = await timelineRes.json();
 
             // Sync Date UI
-            const todayLabel = document.getElementById('day-label');
+            const todayLabel = document.getElementById('day-label-text');
             if (viewMode === 'day') {
                 if (dateOffset === 0) todayLabel.innerText = "Today";
                 else if (dateOffset === -1) todayLabel.innerText = "Yesterday";
                 else todayLabel.innerText = dateOffset > 0 ? `+${dateOffset} days` : `${dateOffset} days`;
+            } else if (viewMode === 'week') {
+                const weeksOff = Math.round(dateOffset / 7);
+                if (weeksOff === 0) todayLabel.innerText = "This Week";
+                else if (weeksOff === -1) todayLabel.innerText = "Last Week";
+                else if (weeksOff < 0) todayLabel.innerText = `${Math.abs(weeksOff)} weeks ago`;
+                else todayLabel.innerText = `+${weeksOff} weeks`;
             } else {
-                if (dateOffset === 0) todayLabel.innerText = "This Week";
-                else if (dateOffset < 0) todayLabel.innerText = `${Math.abs(dateOffset)} weeks ago`;
-                else todayLabel.innerText = `+${dateOffset} weeks`;
+                // month
+                const d = new Date(); d.setDate(d.getDate() + dateOffset);
+                const now = new Date();
+                if (d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear()) {
+                    todayLabel.innerText = "This Month";
+                } else {
+                    todayLabel.innerText = d.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+                }
             }
 
             // Sync session & timers

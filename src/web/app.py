@@ -21,8 +21,9 @@ from ..database import (
     SEED_ADMIN_EMAIL
 )
 from ..db_extensions import (
-    get_category_details, get_client_details, assign_activities_bulk, assign_activities_category_bulk, get_aggregated_activities, 
+    get_category_details, get_client_details, assign_activities_bulk, assign_activities_category_bulk, get_aggregated_activities,
     get_summarized_logs, get_score_stats, get_weekly_score_stats, get_timeline_stats, get_weekly_timeline_stats,
+    get_monthly_summary_stats, get_monthly_score_stats, get_monthly_timeline_stats,
     get_current_session_info, bulk_update_activities,
     get_team_summary, get_member_detail
 )
@@ -247,7 +248,9 @@ def api_summary():
     date_str = request.args.get('date')
     view = request.args.get('view')
     user_email = g.user['email'] if g.user else None
-    if view == 'week':
+    if view == 'month':
+        stats = get_monthly_summary_stats(date_str, user_email=user_email)
+    elif view == 'week':
         stats = get_weekly_summary_stats(date_str, user_email=user_email)
     else:
         stats = get_summary_stats(date_str, user_email=user_email)
@@ -367,7 +370,9 @@ def api_assign_category_bulk():
 def api_scores():
     date_str = request.args.get('date')
     view = request.args.get('view')
-    if view == 'week':
+    if view == 'month':
+        stats = get_monthly_score_stats(date_str)
+    elif view == 'week':
         stats = get_weekly_score_stats(date_str)
     else:
         stats = get_score_stats(date_str)
@@ -377,7 +382,9 @@ def api_scores():
 def api_timeline():
     date_str = request.args.get('date')
     view = request.args.get('view')
-    if view == 'week':
+    if view == 'month':
+        stats = get_monthly_timeline_stats(date_str)
+    elif view == 'week':
         stats = get_weekly_timeline_stats(date_str)
     else:
         stats = get_timeline_stats(date_str)

@@ -2,6 +2,7 @@ from src.database import get_db_connection, SEED_ADMIN_EMAIL
 import psycopg2
 from psycopg2.extras import RealDictCursor
 import datetime
+import calendar
 
 def _ue_clause(user_email, alias=''):
     if not user_email:
@@ -575,6 +576,129 @@ def get_weekly_timeline_stats(date_str=None):
         })
         
     return result
+
+
+# ── Monthly aggregation functions ──────────────────────────────────────────────
+
+def get_monthly_summary_stats(date_str=None, user_email=None):
+    """Aggregate summary stats for the entire calendar month containing date_str."""
+    conn = get_db_connection()
+    try:
+        c = conn.cursor(cursor_factory=RealDictCursor)
+        if not date_str:
+            date_str = datetime.datetime.now().strftime('%Y-%m-%d')
+
+        ref_dt = datetime.datetime.strptime(date_str, '%Y-%m-%d')
+        year, month = ref_dt.year, ref_dt.month
+        last_day = calendar.monthrange(year, month)[1]
+
+        start_time = f'{year}-{month:02d}-01 00:00:00'
+        end_time   = f'{year}-{month:02d}-{last_day:02d} 23:59:59'
+
+        ue_sql,   ue_params   = _ue_clause(user_email, alias='')
+        ue_sql_a, ue_params_a = _ue_clause(user_email, alias='a')
+
+        c.execute(f'SELECT COALESCE(SUM(duration),0) FROM activities WHERE timestamp >= %s AND timestamp <= %s{ue_sql}',
+                  [start_time, end_time] + ue_params)
+        total_duration = c.fetchone()['coalesce']
+
+        c.execute(f'''
+            SELECT app_name, SUM(duration) as total_time
+            FROM activities
+            WHERE timestamp >= %s AND timestamp <= %s{ue_sql}
+              AND app_name IS NOT NULL AND app_name != ''
+            GROUP BY app_name ORDER BY total_time DESC
+        ''', [start_time, end_time] + ue_params)
+        by_app = [dict(row) for row in c.fetchall()]
+
+        c.execute(f'''
+            SELECT client, SUM(duration) as total_time
+            FROM activities
+            WHERE timestamp >= %s AND timestamp <= %s{ue_sql}
+            GROUP BY client ORDER BY total_time DESC
+        ''', [start_time, end_time] + ue_params)
+        by_client = [dict(row) for row in c.fetchall()]
+
+        c.execute(f'''
+            SELECT COALESCE(c.name, 'Uncategorized') as category, SUM(a.duration) as total_time, COALESCE(c.color, '#94a3b8') as color
+            FROM activities a
+            LEFT JOIN categories c ON a.category_id = c.id
+            WHERE a.timestamp >= %s AND a.timestamp <= %s{ue_sql_a}
+            GROUP BY COALESCE(c.name, 'Uncategorized'), color ORDER BY total_time DESC
+        ''', [start_time, end_time] + ue_params_a)
+        by_category = [dict(row) for row in c.fetchall()]
+
+        return {
+            'total_duration': total_duration,
+            'by_app': by_app,
+            'by_client': by_client,
+            'by_category': by_category,
+        }
+    finally:
+        conn.close()
+
+
+def get_monthly_score_stats(date_str=None):
+    """Aggregate focus/meeting/break scores for the full calendar month."""
+    if not date_str:
+        date_str = datetime.datetime.now().strftime('%Y-%m-%d')
+
+    ref_dt = datetime.datetime.strptime(date_str, '%Y-%m-%d')
+    year, month = ref_dt.year, ref_dt.month
+    num_days = calendar.monthrange(year, month)[1]
+
+    total_focus = 0
+    total_meeting = 0
+    total_break = 0
+    total_elapsed = 0
+
+    for day in range(1, num_days + 1):
+        d_str = f'{year}-{month:02d}-{day:02d}'
+        day_stats = get_score_stats(d_str)
+        total_focus   += day_stats['focus']['time']
+        total_meeting += day_stats['meeting']['time']
+        total_break   += day_stats['break']['time']
+        total_elapsed += day_stats['total_elapsed']
+
+    denom = max(1, total_elapsed)
+    return {
+        'focus':   {'time': int(total_focus),   'pct': round((total_focus   / denom) * 100)},
+        'meeting': {'time': int(total_meeting), 'pct': round((total_meeting / denom) * 100)},
+        'break':   {'time': int(total_break),   'pct': round((total_break   / denom) * 100)},
+        'total_elapsed': int(total_elapsed)
+    }
+
+
+def get_monthly_timeline_stats(date_str=None):
+    """Return one bar per day for the full calendar month (day-of-month as label)."""
+    if not date_str:
+        date_str = datetime.datetime.now().strftime('%Y-%m-%d')
+
+    ref_dt = datetime.datetime.strptime(date_str, '%Y-%m-%d')
+    year, month = ref_dt.year, ref_dt.month
+    num_days = calendar.monthrange(year, month)[1]
+
+    result = []
+    for day in range(1, num_days + 1):
+        d_dt  = datetime.datetime(year, month, day)
+        d_str = d_dt.strftime('%Y-%m-%d')
+
+        day_timeline = get_timeline_stats(d_str)
+
+        total_focus = sum(h['focus'] for h in day_timeline)
+        total_comms = sum(h['comms'] for h in day_timeline)
+        total_all   = sum(h['total'] for h in day_timeline)
+
+        result.append({
+            'hour':      str(day),       # day-of-month as label
+            'focus':     total_focus,
+            'comms':     total_comms,
+            'total':     total_all,
+            'date_full': d_str
+        })
+
+    return result
+
 
 def get_team_summary(member_emails, start_date, end_date):
     if not member_emails:
