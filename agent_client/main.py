@@ -437,15 +437,24 @@ def _build_tray_icon(loop):
             loop.flush_and_stop()
             icon.stop()
 
+        def on_change_email(icon, item):
+            new_cfg = config.change_email()
+            if new_cfg:
+                loop.cfg = new_cfg
+                log.info(f"Email updated to {new_cfg['user_email']}")
+                icon.update_menu()
+
         def pause_label(item):
             return 'Resume Tracking' if loop.paused else 'Pause Tracking'
 
         # Info items — displayed grayed-out, non-clickable
-        user_email = loop.cfg.get('user_email', 'Unknown')
-        version    = '1.4.2'
+        version    = '1.4.3'
 
         def noop(icon, item):
             pass
+
+        def user_label(item):
+            return f"User: {loop.cfg.get('user_email', 'Unknown')}"
 
         def upload_status(item):
             if loop._consecutive_upload_failures > 0:
@@ -463,7 +472,8 @@ def _build_tray_icon(loop):
             pystray.MenuItem(pause_label, on_pause_resume),
             pystray.Menu.SEPARATOR,
             pystray.MenuItem(upload_status, noop, enabled=False),
-            pystray.MenuItem(f'User: {user_email}', noop, enabled=False),
+            pystray.MenuItem(user_label, noop, enabled=False),
+            pystray.MenuItem('Change Email...', on_change_email),
             pystray.MenuItem(f'Version {version}',  noop, enabled=False),
             pystray.Menu.SEPARATOR,
             pystray.MenuItem('Quit AITimeKeeper', on_quit),
@@ -479,7 +489,7 @@ def _build_tray_icon(loop):
 
 def main():
     log.info("=" * 60)
-    log.info("AITimeKeeper agent starting (v1.4.2)")
+    log.info("AITimeKeeper agent starting (v1.4.3)")
     log.info(f"Platform: {platform.system()} {platform.release()}")
     log.info(f"Python: {sys.version}")
     log.info(f"PID: {os.getpid()}")
@@ -498,7 +508,12 @@ def main():
     cfg = config.load()
 
     if not config.is_configured(cfg):
-        cfg = config.first_run_setup()
+        try:
+            cfg = config.first_run_setup()
+        except (ValueError, Exception) as e:
+            log.error(f"First-run setup failed: {e}")
+            log.error("Agent cannot start without configuration. Exiting.")
+            sys.exit(1)
 
     loop = AgentLoop(cfg)
 
