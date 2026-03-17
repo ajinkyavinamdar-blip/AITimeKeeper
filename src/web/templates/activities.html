@@ -122,7 +122,8 @@
                         </th>
                         <th class="px-6 py-4">Time</th>
                         <th class="px-6 py-4" id="col-user" style="display:none">User</th>
-                        <th class="px-6 py-4">App & Window</th>
+                        <th class="px-6 py-4">App</th>
+                        <th class="px-6 py-4">Window / Detail</th>
                         <th class="px-6 py-4">Client</th>
                         <th class="px-6 py-4">Category</th>
                         <th class="px-6 py-4 text-right">Duration</th>
@@ -131,7 +132,7 @@
                 </thead>
                 <tbody class="divide-y divide-slate-700/30" id="activity-table-body">
                     <tr>
-                        <td colspan="7" class="px-6 py-10 text-center text-slate-500 italic">Loading activities...</td>
+                        <td colspan="8" class="px-6 py-10 text-center text-slate-500 italic">Loading activities...</td>
                     </tr>
                 </tbody>
             </table>
@@ -276,7 +277,7 @@
 
             tbody.innerHTML = '';
             if (data.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="7" class="px-6 py-10 text-center text-slate-500 italic">No activities found matching filters.</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="8" class="px-6 py-10 text-center text-slate-500 italic">No activities found matching filters.</td></tr>';
                 return;
             }
 
@@ -309,9 +310,12 @@
                     </td>
                     <td class="px-6 py-4 whitespace-nowrap text-slate-400 text-xs font-mono">${timeStr}</td>
                     ${userCell}
-                    <td class="px-6 py-4 max-w-sm">
-                        <div class="text-white font-medium truncate text-sm" title="${act.app_name}">${act.app_name}</div>
-                        <div class="text-slate-500 text-[10px] truncate leading-tight mt-0.5" title="${act.window_title}">${act.window_title}</div>
+                    <td class="px-6 py-4 whitespace-nowrap">
+                        <span class="text-white font-medium text-sm">${act.app_name}</span>
+                    </td>
+                    <td class="px-6 py-4 max-w-xs">
+                        <div class="text-slate-300 text-xs truncate" title="${act.window_title}">${act.window_title || ''}</div>
+                        ${act.url_or_filename ? '<div class="text-slate-500 text-[10px] truncate leading-tight mt-0.5" title="' + act.url_or_filename + '">' + (act.url_or_filename.startsWith('http') ? '🔗 ' : '📄 ') + act.url_or_filename + '</div>' : ''}
                     </td>
                     <td class="px-6 py-4 whitespace-nowrap">
                         <span class="px-2 py-1 rounded-lg text-[10px] font-bold uppercase tracking-wider bg-slate-700/30 text-slate-400 border border-slate-700/50">
@@ -336,7 +340,7 @@
 
         } catch (error) {
             console.error("Error fetching activities:", error);
-            tbody.innerHTML = '<tr><td colspan="7" class="px-6 py-10 text-center text-red-400 italic">Error loading activities.</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="8" class="px-6 py-10 text-center text-red-400 italic">Error loading activities.</td></tr>';
         }
     }
 

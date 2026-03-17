@@ -61,7 +61,7 @@ if sys.platform == 'darwin':
             'NSPrincipalClass': 'NSApplication',
             'LSBackgroundOnly': True,
             'LSUIElement': True,           # hide from Dock
-            'CFBundleShortVersionString': '1.4.1',
+            'CFBundleShortVersionString': '1.4.2',
             'NSSupportsAutomaticTermination': False,
             'NSSupportsSuddenTermination': False,
             'CFBundleName': 'AITimeKeeper',

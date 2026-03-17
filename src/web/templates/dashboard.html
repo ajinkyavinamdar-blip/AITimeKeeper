@@ -748,10 +748,9 @@
             const row = `
                     <tr class="hover:bg-slate-800/30 transition-colors">
                         <td class="px-2 py-2 whitespace-nowrap text-slate-500 text-[10px]">${timeStr}</td>
-                        <td class="px-2 py-2 whitespace-nowrap truncate max-w-[120px]" title="${act.window_title}">
-                            <span class="text-slate-300 font-bold">${act.app_name}</span>
-                            <span class="text-slate-500 mx-1">-</span>
-                            ${act.window_title}
+                        <td class="px-2 py-2 whitespace-nowrap text-slate-300 font-bold text-[11px]">${act.app_name}</td>
+                        <td class="px-2 py-2 truncate max-w-[180px] text-[10px] text-slate-400" title="${act.window_title}${act.url_or_filename ? '\n' + act.url_or_filename : ''}">
+                            ${act.window_title || ''}${act.url_or_filename ? '<br><span class=&quot;text-slate-500&quot;>' + (act.url_or_filename.startsWith('http') ? '🔗 ' : '📄 ') + act.url_or_filename + '</span>' : ''}
                         </td>
                         <td class="px-2 py-2 whitespace-nowrap text-right text-[10px] text-slate-400">${formatTime(act.duration)}</td>
                     </tr>

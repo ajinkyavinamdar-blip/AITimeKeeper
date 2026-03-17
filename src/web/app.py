@@ -340,6 +340,7 @@ def api_activities():
             'app_name': row[2],
             'window_title': row[3],
             'url': row[4],
+            'url_or_filename': row[4],
             'profile': row[5],
             'client': row[6],
             'duration': row[7],

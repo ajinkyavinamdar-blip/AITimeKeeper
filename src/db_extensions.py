@@ -256,19 +256,23 @@ def get_aggregated_activities(minutes=10, date_str=None, app_filter=None, title_
                     'end_time': current_bucket_start + datetime.timedelta(minutes=minutes),
                     'apps': {},
                     'titles': {},
+                    'urls': {},
                     'total_duration': 0,
                     'client_counts': {},
                     'ids': []
                 }
-            
+
             if ts < current_bucket['end_time']:
                 app = row['app_name']
                 title = row['window_title']
+                url = row.get('url_or_filename') or ''
                 client = row['client'] or 'Unassigned'
                 duration = row['duration']
-                
+
                 current_bucket['apps'][app] = current_bucket['apps'].get(app, 0) + duration
                 current_bucket['titles'][title] = current_bucket['titles'].get(title, 0) + duration
+                if url:
+                    current_bucket['urls'][url] = current_bucket['urls'].get(url, 0) + duration
                 current_bucket['client_counts'][client] = current_bucket['client_counts'].get(client, 0) + duration
                 current_bucket['total_duration'] += duration
                 current_bucket['ids'].append(row['id'])
@@ -278,11 +282,13 @@ def get_aggregated_activities(minutes=10, date_str=None, app_filter=None, title_
                 minute_floor = (ts.minute // minutes) * minutes
                 current_bucket_start = ts.replace(minute=minute_floor, second=0, microsecond=0)
                 
+                url = row.get('url_or_filename') or ''
                 current_bucket = {
                     'start_time': current_bucket_start,
                     'end_time': current_bucket_start + datetime.timedelta(minutes=minutes),
                     'apps': {row['app_name']: row['duration']},
                     'titles': {row['window_title']: row['duration']},
+                    'urls': {url: row['duration']} if url else {},
                     'total_duration': row['duration'],
                     'client_counts': {(row['client'] or 'Unassigned'): row['duration']},
                     'ids': [row['id']]
@@ -326,17 +332,18 @@ def get_summarized_logs(date_str=None, app_filter=None, title_filter=None, clien
                 params.append(category_filter)
             
         query = f'''
-            SELECT 
-                app_name, 
-                window_title, 
-                category_id, 
+            SELECT
+                app_name,
+                window_title,
+                url_or_filename,
+                category_id,
                 client,
                 SUM(duration) as total_duration,
                 MAX(timestamp) as last_timestamp,
                 STRING_AGG(id::text, ',') as ids
-            FROM activities 
+            FROM activities
             {query_where}
-            GROUP BY app_name, window_title, category_id, client
+            GROUP BY app_name, window_title, url_or_filename, category_id, client
             ORDER BY total_duration DESC
         '''
         
@@ -357,16 +364,18 @@ def get_summarized_logs(date_str=None, app_filter=None, title_filter=None, clien
 def finalize_bucket(bucket):
     dominant_app = max(bucket['apps'].items(), key=lambda x: x[1])[0] if bucket['apps'] else "Unknown"
     dominant_title = max(bucket['titles'].items(), key=lambda x: x[1])[0] if bucket['titles'] else "Unknown"
+    dominant_url = max(bucket.get('urls', {}).items(), key=lambda x: x[1])[0] if bucket.get('urls') else ""
     dominant_client = max(bucket['client_counts'].items(), key=lambda x: x[1])[0] if bucket['client_counts'] else "Unassigned"
-    
+
     return {
         'timestamp': bucket['start_time'].strftime('%Y-%m-%d %H:%M:%S'),
         'app_name': dominant_app,
-        'window_title': dominant_title, 
+        'window_title': dominant_title,
+        'url_or_filename': dominant_url,
         'client': dominant_client,
-        'duration': bucket['total_duration'], 
+        'duration': bucket['total_duration'],
         'count': len(bucket['ids']),
-        'ids': bucket['ids'] 
+        'ids': bucket['ids']
     }
 
 def get_score_stats(date_str=None):

@@ -31,24 +31,23 @@ BUFFER_FILE = os.path.join(LOG_DIR, "pending_buffer.json")
 
 os.makedirs(LOG_DIR, exist_ok=True)
 
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s [%(levelname)s] %(message)s",
-    handlers=[
-        logging.FileHandler(LOG_FILE, maxBytes=0),  # we'll use RotatingFileHandler
-        logging.StreamHandler(sys.stdout),
-    ],
-)
-# Replace with RotatingFileHandler to cap log size at 5MB
+# RotatingFileHandler to cap log size at 5MB
 from logging.handlers import RotatingFileHandler
 root_logger = logging.getLogger()
+root_logger.setLevel(logging.INFO)
 root_logger.handlers.clear()
+
+_log_fmt = logging.Formatter("%(asctime)s [%(levelname)s] %(message)s")
+
 file_handler = RotatingFileHandler(LOG_FILE, maxBytes=5*1024*1024, backupCount=2)
-file_handler.setFormatter(logging.Formatter("%(asctime)s [%(levelname)s] %(message)s"))
-stdout_handler = logging.StreamHandler(sys.stdout)
-stdout_handler.setFormatter(logging.Formatter("%(asctime)s [%(levelname)s] %(message)s"))
+file_handler.setFormatter(_log_fmt)
 root_logger.addHandler(file_handler)
-root_logger.addHandler(stdout_handler)
+
+# In bundled macOS .app (console=False), sys.stdout is None — skip console handler
+if sys.stdout is not None:
+    stdout_handler = logging.StreamHandler(sys.stdout)
+    stdout_handler.setFormatter(_log_fmt)
+    root_logger.addHandler(stdout_handler)
 
 log = logging.getLogger("agent")
 
@@ -443,7 +442,7 @@ def _build_tray_icon(loop):
 
         # Info items — displayed grayed-out, non-clickable
         user_email = loop.cfg.get('user_email', 'Unknown')
-        version    = '1.4.1'
+        version    = '1.4.2'
 
         def noop(icon, item):
             pass
@@ -480,7 +479,7 @@ def _build_tray_icon(loop):
 
 def main():
     log.info("=" * 60)
-    log.info("AITimeKeeper agent starting (v1.4.1)")
+    log.info("AITimeKeeper agent starting (v1.4.2)")
     log.info(f"Platform: {platform.system()} {platform.release()}")
     log.info(f"Python: {sys.version}")
     log.info(f"PID: {os.getpid()}")
