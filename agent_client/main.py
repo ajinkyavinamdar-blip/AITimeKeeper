@@ -132,21 +132,63 @@ class IdleFilter:
     def __init__(self, threshold_seconds=180):
         self.last_activity = time.time()
         self.threshold = threshold_seconds
-        self._ml = mouse.Listener(on_move=self._touch, on_click=self._touch, on_scroll=self._touch)
-        self._kl = keyboard.Listener(on_press=self._touch)
+        self._disabled = False  # True if pynput can't listen (no Accessibility)
+        self._ever_received_event = False
+        self._started_at = None
+        try:
+            self._ml = mouse.Listener(on_move=self._touch, on_click=self._touch, on_scroll=self._touch)
+            self._kl = keyboard.Listener(on_press=self._touch)
+        except Exception as e:
+            log.warning(f"pynput listeners could not be created: {e}")
+            self._ml = None
+            self._kl = None
+            self._disabled = True
 
     def _touch(self, *_):
         self.last_activity = time.time()
+        self._ever_received_event = True
 
     def start(self):
-        self._ml.start()
-        self._kl.start()
+        if self._disabled:
+            log.warning("IdleFilter disabled — pynput not available. "
+                        "Tracking will run continuously without idle detection.")
+            return
+        self._started_at = time.time()
+        try:
+            self._ml.start()
+            self._kl.start()
+        except Exception as e:
+            log.warning(f"pynput listeners failed to start: {e}")
+            self._disabled = True
 
     def stop(self):
-        self._ml.stop()
-        self._kl.stop()
+        if self._disabled:
+            return
+        try:
+            self._ml.stop()
+            self._kl.stop()
+        except Exception:
+            pass
 
     def is_idle(self) -> bool:
+        if self._disabled:
+            return False
+        # Until pynput has proven it can receive events, assume user is active.
+        # This prevents the false-idle bug when Accessibility permission is missing:
+        # without it, _touch() is never called, last_activity freezes, and after
+        # 3 minutes the agent would permanently think the user is idle.
+        if not self._ever_received_event:
+            # After 5 minutes with zero events, log a warning and permanently
+            # disable idle detection (pynput clearly isn't working).
+            if (self._started_at
+                    and (time.time() - self._started_at) > 300):
+                log.warning("IdleFilter has never received input events after 5 minutes. "
+                            "pynput likely lacks Accessibility permission. "
+                            "Disabling idle detection — tracking will run continuously. "
+                            "Grant Accessibility permission in System Settings > "
+                            "Privacy & Security > Accessibility to enable idle detection.")
+                self._disabled = True
+            return False  # assume active until proven otherwise
         return (time.time() - self.last_activity) > self.threshold
 
 
@@ -269,10 +311,16 @@ class AgentLoop:
                         buf_size = len(self.buffer)
                     idle_str = "idle" if self.idle_filter.is_idle() else "active"
                     paused_str = "paused" if self.paused else "tracking"
+                    idle_info = ""
+                    if self.idle_filter._disabled:
+                        idle_info = ", idle_filter=DISABLED"
+                    elif not self.idle_filter._ever_received_event:
+                        idle_info = ", idle_filter=NO_EVENTS"
                     log.info(f"[health] {paused_str}, {idle_str}, "
                              f"buffer={buf_size}, tracked={self._track_count}, "
                              f"uploaded={self._upload_count}, "
-                             f"failures={self._consecutive_upload_failures}")
+                             f"failures={self._consecutive_upload_failures}"
+                             f"{idle_info}")
             except Exception as e:
                 log.error(f"[watchdog] error: {e}")
 
@@ -344,6 +392,7 @@ class AgentLoop:
     def _control_poll_loop(self):
         """Periodically asks the server whether this user's tracking is paused."""
         import requests
+        _consecutive_poll_errors = 0
         while self.running:
             try:
                 time.sleep(self.CONTROL_POLL_INTERVAL)
@@ -355,15 +404,29 @@ class AgentLoop:
                     timeout=15,
                 )
                 if resp.status_code == 200:
-                    data = resp.json()
+                    try:
+                        data = resp.json()
+                    except ValueError:
+                        # Server returned non-JSON (e.g. Render cold start HTML)
+                        if _consecutive_poll_errors == 0:
+                            log.debug("Control poll: server returned non-JSON, will retry")
+                        _consecutive_poll_errors += 1
+                        continue
+                    _consecutive_poll_errors = 0
                     server_paused = bool(data.get('paused', False))
                     if server_paused and not self.paused:
                         self.pause()
                     elif not server_paused and self.paused:
                         self.resume()
+                elif resp.status_code == 404:
+                    # Endpoint doesn't exist on this server — stop polling
+                    log.info("Control poll endpoint not available (404), disabling server pause sync")
+                    return
             except Exception as e:
-                # CRITICAL: catch ALL exceptions so the thread never dies
-                log.error(f"control poll error (recovering): {e}")
+                _consecutive_poll_errors += 1
+                # Only log first occurrence and then every 10th to avoid spam
+                if _consecutive_poll_errors <= 1 or _consecutive_poll_errors % 10 == 0:
+                    log.warning(f"control poll error ({_consecutive_poll_errors}x): {e}")
                 time.sleep(5)
 
     def flush_and_stop(self):
@@ -462,7 +525,7 @@ def _build_tray_icon(loop):
             return 'Resume Tracking' if loop.paused else 'Pause Tracking'
 
         # Info items — displayed grayed-out, non-clickable
-        version    = '1.4.3'
+        version    = '1.4.4'
 
         def noop(icon, item):
             pass
@@ -507,7 +570,7 @@ def _build_tray_icon(loop):
 
 def main():
     log.info("=" * 60)
-    log.info("AITimeKeeper agent starting (v1.4.3)")
+    log.info("AITimeKeeper agent starting (v1.4.4)")
     log.info(f"Platform: {platform.system()} {platform.release()}")
     log.info(f"Python: {sys.version}")
     log.info(f"PID: {os.getpid()}")
