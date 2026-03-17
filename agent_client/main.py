@@ -129,37 +129,58 @@ def _get_observer():
 from pynput import mouse, keyboard
 
 class IdleFilter:
-    def __init__(self, threshold_seconds=180):
+    # How long a user must be inactive before considered idle (seconds)
+    IDLE_THRESHOLD = 180  # 3 minutes
+
+    # If idle detection claims "idle" continuously for this many seconds,
+    # something is wrong (pynput stopped working) — auto-disable.
+    STALENESS_LIMIT = 300  # 5 minutes
+
+    def __init__(self, threshold_seconds=None):
         self.last_activity = time.time()
-        self.threshold = threshold_seconds
-        self._disabled = False  # True if pynput can't listen (no Accessibility)
-        self._ever_received_event = False
-        self._started_at = None
+        self.threshold = threshold_seconds or self.IDLE_THRESHOLD
+        self._disabled = False
+        self._idle_since = None  # timestamp when is_idle() first returned True
+
+    @staticmethod
+    def _is_accessibility_trusted():
+        """Check macOS Accessibility permission via AXIsProcessTrusted()."""
+        if platform.system() != "Darwin":
+            return True  # non-macOS: assume OK
+        try:
+            import ctypes
+            import ctypes.util
+            lib = ctypes.cdll.LoadLibrary(
+                '/System/Library/Frameworks/ApplicationServices.framework'
+                '/ApplicationServices'
+            )
+            lib.AXIsProcessTrusted.restype = ctypes.c_bool
+            return lib.AXIsProcessTrusted()
+        except Exception:
+            return True  # can't check → assume OK, pynput will fail visibly
+
+    def start(self):
+        # Check Accessibility FIRST — if not trusted, pynput WILL fail
+        if not self._is_accessibility_trusted():
+            log.warning("Accessibility permission NOT granted. "
+                        "Disabling idle detection — tracking will run continuously. "
+                        "Grant permission in System Settings > Privacy & Security > "
+                        "Accessibility to enable idle detection.")
+            self._disabled = True
+            return
+
         try:
             self._ml = mouse.Listener(on_move=self._touch, on_click=self._touch, on_scroll=self._touch)
             self._kl = keyboard.Listener(on_press=self._touch)
+            self._ml.start()
+            self._kl.start()
+            log.info("IdleFilter started — Accessibility permission OK")
         except Exception as e:
-            log.warning(f"pynput listeners could not be created: {e}")
-            self._ml = None
-            self._kl = None
+            log.warning(f"pynput listeners failed: {e}. Disabling idle detection.")
             self._disabled = True
 
     def _touch(self, *_):
         self.last_activity = time.time()
-        self._ever_received_event = True
-
-    def start(self):
-        if self._disabled:
-            log.warning("IdleFilter disabled — pynput not available. "
-                        "Tracking will run continuously without idle detection.")
-            return
-        self._started_at = time.time()
-        try:
-            self._ml.start()
-            self._kl.start()
-        except Exception as e:
-            log.warning(f"pynput listeners failed to start: {e}")
-            self._disabled = True
 
     def stop(self):
         if self._disabled:
@@ -173,23 +194,26 @@ class IdleFilter:
     def is_idle(self) -> bool:
         if self._disabled:
             return False
-        # Until pynput has proven it can receive events, assume user is active.
-        # This prevents the false-idle bug when Accessibility permission is missing:
-        # without it, _touch() is never called, last_activity freezes, and after
-        # 3 minutes the agent would permanently think the user is idle.
-        if not self._ever_received_event:
-            # After 5 minutes with zero events, log a warning and permanently
-            # disable idle detection (pynput clearly isn't working).
-            if (self._started_at
-                    and (time.time() - self._started_at) > 300):
-                log.warning("IdleFilter has never received input events after 5 minutes. "
-                            "pynput likely lacks Accessibility permission. "
-                            "Disabling idle detection — tracking will run continuously. "
-                            "Grant Accessibility permission in System Settings > "
-                            "Privacy & Security > Accessibility to enable idle detection.")
+
+        idle = (time.time() - self.last_activity) > self.threshold
+
+        if idle:
+            # Track how long we've been continuously "idle"
+            if self._idle_since is None:
+                self._idle_since = time.time()
+            elif (time.time() - self._idle_since) > self.STALENESS_LIMIT:
+                # Idle for 5+ minutes straight — pynput likely stopped receiving
+                # events (macOS killed listeners, or Accessibility was revoked).
+                # Disable to prevent permanent tracking stoppage.
+                log.warning(f"IdleFilter reported idle for >{self.STALENESS_LIMIT}s straight. "
+                            "pynput likely stopped working. Disabling idle detection — "
+                            "tracking will run continuously.")
                 self._disabled = True
-            return False  # assume active until proven otherwise
-        return (time.time() - self.last_activity) > self.threshold
+                return False
+        else:
+            self._idle_since = None  # reset — user is active
+
+        return idle
 
 
 # ── Buffer Persistence ───────────────────────────────────────────────────────
@@ -314,8 +338,6 @@ class AgentLoop:
                     idle_info = ""
                     if self.idle_filter._disabled:
                         idle_info = ", idle_filter=DISABLED"
-                    elif not self.idle_filter._ever_received_event:
-                        idle_info = ", idle_filter=NO_EVENTS"
                     log.info(f"[health] {paused_str}, {idle_str}, "
                              f"buffer={buf_size}, tracked={self._track_count}, "
                              f"uploaded={self._upload_count}, "
@@ -570,7 +592,7 @@ def _build_tray_icon(loop):
 
 def main():
     log.info("=" * 60)
-    log.info("AITimeKeeper agent starting (v1.4.4)")
+    log.info("AITimeKeeper agent starting (v1.4.5)")
     log.info(f"Platform: {platform.system()} {platform.release()}")
     log.info(f"Python: {sys.version}")
     log.info(f"PID: {os.getpid()}")
