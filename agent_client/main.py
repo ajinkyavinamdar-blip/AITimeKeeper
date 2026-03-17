@@ -152,18 +152,25 @@ class IdleFilter:
 
 # ── Buffer Persistence ───────────────────────────────────────────────────────
 
-def _save_buffer_to_disk(entries):
-    """Persist unsent entries to disk so they survive crashes."""
+def _save_buffer_to_disk(entries, overwrite=False):
+    """Persist unsent entries to disk so they survive crashes.
+
+    overwrite=True: replace file contents (used for periodic snapshots)
+    overwrite=False: append to existing (used for shutdown saves)
+    """
     if not entries:
         return
     try:
-        existing = _load_buffer_from_disk()
-        existing.extend(entries)
+        if overwrite:
+            data = entries
+        else:
+            data = _load_buffer_from_disk()
+            data.extend(entries)
         # Cap at 50,000 entries (~7 hours of 5s polls) to prevent unbounded growth
-        if len(existing) > 50000:
-            existing = existing[-50000:]
+        if len(data) > 50000:
+            data = data[-50000:]
         with open(BUFFER_FILE, "w") as f:
-            json.dump(existing, f)
+            json.dump(data, f)
     except Exception as e:
         log.error(f"Failed to save buffer to disk: {e}")
 
@@ -270,6 +277,7 @@ class AgentLoop:
                 log.error(f"[watchdog] error: {e}")
 
     def _track_loop(self):
+        save_counter = 0
         while self.running:
             try:
                 if not self.paused and not self.idle_filter.is_idle() and self.observer:
@@ -287,6 +295,14 @@ class AgentLoop:
                     with self.lock:
                         self.buffer.append(entry)
                     self._track_count += 1
+
+                    # Save buffer to disk every 6 entries (~30s) for crash recovery
+                    save_counter += 1
+                    if save_counter >= 6:
+                        with self.lock:
+                            snapshot = list(self.buffer)
+                        _save_buffer_to_disk(snapshot, overwrite=True)
+                        save_counter = 0
             except Exception as e:
                 log.error(f"Tracking error: {e}")
             time.sleep(self.POLL_INTERVAL)
@@ -302,21 +318,19 @@ class AgentLoop:
                     self.buffer.clear()
 
                 if batch:
-                    # Save to disk BEFORE attempting upload — if we crash during
-                    # upload, these entries will be recovered on next start
-                    _save_buffer_to_disk(batch)
-
                     ok = uploader.post_batch(self.cfg, batch)
                     if ok:
                         self._consecutive_upload_failures = 0
                         self._last_successful_upload = time.time()
                         self._upload_count += len(batch)
-                        # Clear disk buffer on success
+                        # Clear disk buffer — data is on the server now
                         _clear_buffer_on_disk()
                     else:
                         self._consecutive_upload_failures += 1
+                        # On failure, uploader already saved to offline_queue.json
+                        # Clear disk buffer to avoid duplication on restart
+                        _clear_buffer_on_disk()
                         # Exponential backoff: wait extra time on repeated failures
-                        # 30s, 60s, 120s, max 300s between attempts
                         backoff = min(self.UPLOAD_INTERVAL * (2 ** self._consecutive_upload_failures),
                                       300)
                         log.warning(f"Upload failed ({self._consecutive_upload_failures}x), "
@@ -457,14 +471,18 @@ def _build_tray_icon(loop):
             return f"User: {loop.cfg.get('user_email', 'Unknown')}"
 
         def upload_status(item):
+            queued = uploader.get_queue_size()
             if loop._consecutive_upload_failures > 0:
-                return f'⚠ Upload failing ({loop._consecutive_upload_failures}x)'
+                base = f'⚠ Upload failing ({loop._consecutive_upload_failures}x)'
+                return f'{base} · {queued} queued' if queued else base
             elif loop._last_successful_upload:
                 ago = int(time.time() - loop._last_successful_upload)
                 if ago < 60:
                     return f'✓ Last upload: {ago}s ago'
                 else:
                     return f'✓ Last upload: {ago // 60}m ago'
+            elif queued:
+                return f'⏳ {queued} logs queued, waiting to upload...'
             else:
                 return '⏳ Waiting for first upload...'
 

@@ -11,7 +11,10 @@ Resilience features:
 import json
 import os
 import time
+import logging
 import requests
+
+log = logging.getLogger("agent.uploader")
 
 OFFLINE_QUEUE_FILE = os.path.join(os.path.expanduser("~"), ".aitimekeeper", "offline_queue.json")
 TIMEOUT = 30          # seconds — Render cold start can take 20-30s
@@ -30,7 +33,7 @@ def post_batch(cfg: dict, logs: list) -> bool:
     server_url = cfg["server_url"].rstrip("/")
     token = cfg["api_token"]
 
-    # First try to drain any buffered offline queue
+    # First try to drain any buffered offline queue from previous failures
     _drain_queue(cfg)
 
     # Retry loop with exponential backoff
@@ -44,27 +47,33 @@ def post_batch(cfg: dict, logs: list) -> bool:
                 timeout=TIMEOUT,
             )
             if resp.status_code == 401:
-                print("[uploader] Auth failed — check your API token in ~/.aitimekeeper/config.json")
+                log.error("Auth failed — check your API token in ~/.aitimekeeper/config.json")
                 return False
             resp.raise_for_status()
             result = resp.json()
             accepted = result.get('accepted', '?')
             if attempt > 1:
-                print(f"[uploader] Uploaded {accepted} rows (succeeded on attempt {attempt})")
+                log.info(f"Uploaded {accepted} rows (succeeded on attempt {attempt})")
             else:
-                print(f"[uploader] Uploaded {accepted} rows")
+                log.info(f"Uploaded {accepted} rows")
             return True
         except Exception as e:
             last_err = e
             if attempt < MAX_RETRIES:
                 wait = 2 ** attempt  # 2s, 4s
-                print(f"[uploader] Attempt {attempt}/{MAX_RETRIES} failed ({e}), retrying in {wait}s...")
+                log.warning(f"Attempt {attempt}/{MAX_RETRIES} failed ({e}), retrying in {wait}s...")
                 time.sleep(wait)
 
-    # All retries exhausted — queue offline
-    print(f"[uploader] All {MAX_RETRIES} attempts failed ({last_err}), queuing {len(logs)} rows offline")
+    # All retries exhausted — queue offline for later
+    log.warning(f"All {MAX_RETRIES} attempts failed ({last_err}), "
+                f"queuing {len(logs)} rows offline for later upload")
     _append_to_queue(logs)
     return False
+
+
+def get_queue_size() -> int:
+    """Return the number of entries waiting in the offline queue."""
+    return len(_load_queue())
 
 
 def _append_to_queue(logs: list):
@@ -75,10 +84,11 @@ def _append_to_queue(logs: list):
     if len(existing) > MAX_QUEUE_SIZE:
         dropped = len(existing) - MAX_QUEUE_SIZE
         existing = existing[-MAX_QUEUE_SIZE:]
-        print(f"[uploader] Offline queue capped: dropped {dropped} oldest rows")
+        log.warning(f"Offline queue capped: dropped {dropped} oldest rows")
     os.makedirs(os.path.dirname(OFFLINE_QUEUE_FILE), exist_ok=True)
     with open(OFFLINE_QUEUE_FILE, "w") as f:
         json.dump(existing, f)
+    log.info(f"Offline queue now has {len(existing)} rows")
 
 
 def _load_queue() -> list:
@@ -92,11 +102,11 @@ def _load_queue() -> list:
 
 
 def _drain_queue(cfg: dict):
-    """Attempt to upload queued rows. Clears file on success."""
+    """Attempt to upload queued rows from previous failures. Clears file on success."""
     queued = _load_queue()
     if not queued:
         return
-    print(f"[uploader] Retrying {len(queued)} offline-queued rows...")
+    log.info(f"Found {len(queued)} rows in offline queue — uploading now...")
     server_url = cfg["server_url"].rstrip("/")
     token = cfg["api_token"]
     try:
@@ -107,9 +117,11 @@ def _drain_queue(cfg: dict):
             timeout=TIMEOUT,
         )
         resp.raise_for_status()
+        result = resp.json()
+        accepted = result.get('accepted', '?')
         # Clear queue on success
         with open(OFFLINE_QUEUE_FILE, "w") as f:
             json.dump([], f)
-        print(f"[uploader] Offline queue flushed ({len(queued)} rows)")
+        log.info(f"Offline queue flushed — {accepted} previously-queued rows uploaded")
     except Exception as e:
-        print(f"[uploader] Could not drain offline queue: {e}")
+        log.warning(f"Could not drain offline queue yet: {e}")
