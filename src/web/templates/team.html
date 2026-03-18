@@ -748,26 +748,7 @@
             </div>
         </div>
 
-        <!-- Recent Activity Log -->
-        <div class="bg-slate-900/50 rounded-xl p-4 border border-slate-700/50 overflow-hidden">
-            <div class="text-[10px] text-slate-500 uppercase font-semibold mb-3">Recent Activity</div>
-            <div class="space-y-1 overflow-y-auto max-h-80">
-                ${(data.recent_activities || []).map(a => `
-                    <div class="flex items-start gap-2 text-[10px] py-1.5 border-b border-slate-700/30">
-                        <span class="text-slate-600 shrink-0 w-10">${(a.timestamp || '').split(' ')[1]?.substring(0, 5) || ''}</span>
-                        <div class="flex-1 min-w-0">
-                            <div class="font-semibold text-slate-300 truncate">${a.app} — ${a.title || ''}</div>
-                            <div class="flex gap-2 mt-0.5">
-                                <span class="text-indigo-400">${a.client || 'Unassigned'}</span>
-                                <span class="text-slate-600">·</span>
-                                <span class="text-slate-500">${a.category || 'Uncategorized'}</span>
-                            </div>
-                        </div>
-                        <span class="text-slate-400 shrink-0">${fmtTime(a.duration)}</span>
-                    </div>
-                `).join('')}
-            </div>
-        </div>
+        <!-- Privacy: managers see aggregated data only, no raw activity logs -->
     `;
     }
 

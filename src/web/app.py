@@ -139,6 +139,8 @@ def summary():
 
 @app.route('/clients')
 def clients_page():
+    guard = require_role('admin')
+    if guard: return guard
     return render_template('clients.html', active_page='clients')
 
 @app.route('/admin')
@@ -614,7 +616,12 @@ def api_mappings():
 
 @app.route('/api/unassigned')
 def api_unassigned():
-    rows = get_unassigned_summary()
+    # Only admins see all unassigned; regular users see only their own
+    if g.user and g.user.get('role') == 'admin':
+        rows = get_unassigned_summary(user_email=None)
+    else:
+        user_email = g.user['email'] if g.user else None
+        rows = get_unassigned_summary(user_email=user_email)
     return jsonify([dict(r) for r in rows])
 
 # Global agent reference (hacky but effective for this scale)
@@ -999,6 +1006,16 @@ def api_team_member_detail(member_email):
     if g.user is None or not g.user.get('can_see_team'):
         return jsonify({'error': 'Unauthorized'}), 403
 
+    # Validate the requested member is self or a report of the requesting manager
+    requester_email = g.user['email']
+    if member_email.lower() != requester_email.lower() and g.user.get('role') != 'admin':
+        reports = get_all_reports(requester_email)
+        report_emails = {r['email'].lower() for r in reports}
+        if member_email.lower() not in report_emails:
+            return jsonify({'error': 'Unauthorized'}), 403
+
     start, end = _get_date_range()
     data = get_member_detail(member_email, start, end)
+    # Managers see aggregated data only — never raw activity logs
+    data.pop('activities', None)
     return jsonify(data)

@@ -899,25 +899,31 @@ def get_mappings():
     finally:
         release_db_connection(conn)
 
-def get_unassigned_summary():
+def get_unassigned_summary(user_email=None):
     conn = get_db_connection()
     try:
         c = conn.cursor(cursor_factory=RealDictCursor)
         week_start = (datetime.datetime.now() - datetime.timedelta(days=7)).strftime('%Y-%m-%d 00:00:00')
-        c.execute('''
-            SELECT 
-                app_name, 
-                window_title, 
-                url_or_filename, 
+        params = [week_start]
+        user_clause = ''
+        if user_email:
+            user_clause = ' AND LOWER(user_email) = LOWER(%s)'
+            params.append(user_email)
+        c.execute(f'''
+            SELECT
+                app_name,
+                window_title,
+                url_or_filename,
                 COUNT(*) as occurrences,
                 SUM(duration) as total_duration
-            FROM activities 
-            WHERE (client IS NULL OR client = '' OR client = 'Unassigned') 
+            FROM activities
+            WHERE (client IS NULL OR client = '' OR client = 'Unassigned')
               AND timestamp >= %s
+              {user_clause}
             GROUP BY app_name, window_title, url_or_filename
             ORDER BY total_duration DESC
             LIMIT 100
-        ''', (week_start,))
+        ''', params)
         rows = [dict(row) for row in c.fetchall()]
         return rows
     finally:
