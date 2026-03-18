@@ -33,7 +33,7 @@ jobs:
         working-directory: agent_client
         run: |
           python3.11 -m pip install --upgrade pip
-          python3.11 -m pip install pyinstaller pynput requests pyobjc-framework-Cocoa
+          python3.11 -m pip install pyinstaller pynput requests pyobjc-framework-Cocoa psutil
 
       - name: Build universal .app bundle
         working-directory: agent_client
