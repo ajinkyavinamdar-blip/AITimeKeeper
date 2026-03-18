@@ -504,6 +504,59 @@ def get_timeline_stats(date_str=None, user_email=None):
     finally:
         release_db_connection(conn)
 
+def get_team_timeline_stats(member_emails, date_str=None):
+    """Aggregate timeline across multiple team members."""
+    if not member_emails:
+        return []
+    conn = get_db_connection()
+    try:
+        c = conn.cursor(cursor_factory=RealDictCursor)
+        if not date_str:
+            date_str = datetime.datetime.now().strftime('%Y-%m-%d')
+        start_time = f"{date_str} 00:00:00"
+        end_time = f"{date_str} 23:59:59"
+
+        lower_ph = ','.join('LOWER(%s)' for _ in member_emails)
+        c.execute(f'''
+            SELECT a.duration, a.timestamp, c.name as category, c.is_focus
+            FROM activities a
+            LEFT JOIN categories c ON a.category_id = c.id
+            WHERE a.timestamp >= %s AND a.timestamp <= %s
+              AND LOWER(a.user_email) IN ({lower_ph})
+            ORDER BY a.timestamp ASC
+        ''', [start_time, end_time] + member_emails)
+
+        rows = [dict(r) for r in c.fetchall()]
+
+        start_h = 8
+        end_h = 23
+        if rows:
+            first_h = datetime.datetime.strptime(rows[0]['timestamp'][:19], '%Y-%m-%d %H:%M:%S').hour
+            last_h = datetime.datetime.strptime(rows[-1]['timestamp'][:19], '%Y-%m-%d %H:%M:%S').hour
+            start_h = min(start_h, first_h)
+            end_h = max(end_h, last_h)
+
+        hourly_data = {}
+        for h in range(start_h, end_h + 1):
+            label = datetime.time(h % 24).strftime('%I %p').lstrip('0')
+            hourly_data[h] = {'hour': label, 'focus': 0, 'comms': 0, 'total': 0}
+
+        comm_categories = ['Collaboration']
+        for r in rows:
+            dt = datetime.datetime.strptime(r['timestamp'][:19], '%Y-%m-%d %H:%M:%S')
+            h = dt.hour
+            if h not in hourly_data: continue
+            dur = r['duration']
+            if r['is_focus']:
+                hourly_data[h]['focus'] += dur
+            elif r['category'] in comm_categories:
+                hourly_data[h]['comms'] += dur
+            hourly_data[h]['total'] += dur
+
+        return [hourly_data[h] for h in sorted(hourly_data.keys())]
+    finally:
+        release_db_connection(conn)
+
 def get_current_session_info(date_str=None, user_email=None):
     conn = get_db_connection()
     try:

@@ -28,7 +28,7 @@ from ..db_extensions import (
     get_summarized_logs, get_score_stats, get_weekly_score_stats, get_timeline_stats, get_weekly_timeline_stats,
     get_monthly_summary_stats, get_monthly_score_stats, get_monthly_timeline_stats,
     get_current_session_info, bulk_update_activities,
-    get_team_summary, get_member_detail
+    get_team_summary, get_team_timeline_stats, get_member_detail
 )
 from ..skills.category_mapper import CategoryMapper
 from ..skills.client_mapper import ClientMapper
@@ -1001,18 +1001,12 @@ def api_team_summary():
     start, end = _get_date_range()
     email = g.user['email']
 
-    if g.user.get('role') == 'admin':
-        # Admin sees ALL users
-        all_users = get_all_users()
-        member_name_map = {u['email']: u['name'] for u in all_users}
-        member_emails = [u['email'] for u in all_users]
-    else:
-        # Manager sees transitive reports + self
-        reports = get_all_reports(email)
-        member_name_map = {r['email']: r['name'] for r in reports}
-        manager_name = g.user.get('name') or email.split('@')[0].title()
-        member_name_map[email] = manager_name
-        member_emails = [email] + [r['email'] for r in reports if r['email'].lower() != email.lower()]
+    # Everyone (admin or not) sees transitive reports + self — follows org hierarchy
+    reports = get_all_reports(email)
+    member_name_map = {r['email']: r['name'] for r in reports}
+    manager_name = g.user.get('name') or email.split('@')[0].title()
+    member_name_map[email] = manager_name
+    member_emails = [email] + [r['email'] for r in reports if r['email'].lower() != email.lower()]
 
     data = get_team_summary(member_emails, start, end)
 
@@ -1021,6 +1015,17 @@ def api_team_summary():
         m['name'] = member_name_map.get(m['email'], m['email'].split('@')[0].title())
 
     data['date_range'] = {'start': start, 'end': end}
+    return jsonify(data)
+
+@app.route('/api/team/timeline')
+def api_team_timeline():
+    if g.user is None or not g.user.get('can_see_team'):
+        return jsonify({'error': 'Unauthorized'}), 403
+    email = g.user['email']
+    reports = get_all_reports(email)
+    member_emails = [email] + [r['email'] for r in reports if r['email'].lower() != email.lower()]
+    date_str = request.args.get('date')
+    data = get_team_timeline_stats(member_emails, date_str)
     return jsonify(data)
 
 @app.route('/api/team/member/<path:member_email>')
