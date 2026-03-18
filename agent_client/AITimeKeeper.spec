@@ -25,6 +25,7 @@ a = Analysis(
         'objc',
         'Foundation',
         'AppKit',
+        'AppKit.NSWorkspace',
         'win32gui',
         'win32process',
         'win32com',
@@ -73,7 +74,7 @@ if sys.platform == 'darwin':
         info_plist={
             'NSPrincipalClass': 'NSApplication',
             'LSUIElement': True,           # hide from Dock but still launchable from Finder
-            'CFBundleShortVersionString': '1.4.8',
+            'CFBundleShortVersionString': '1.4.9',
             'NSSupportsAutomaticTermination': False,
             'NSSupportsSuddenTermination': False,
             'CFBundleName': 'TimePulse',

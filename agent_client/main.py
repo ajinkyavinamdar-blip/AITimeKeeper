@@ -18,7 +18,7 @@ import threading
 import logging
 import traceback
 
-AGENT_VERSION = '1.4.8'
+AGENT_VERSION = '1.4.9'
 
 import psutil
 
@@ -525,37 +525,48 @@ def _make_icon_image():
     # Dark rounded-square background
     d.rounded_rectangle([0, 0, SIZE - 1, SIZE - 1], radius=14, fill=(15, 23, 42, 255))
 
-    # Define the waveform path as line segments
-    # Normalized from SVG: M4,16 h5 l3,-8 l4,16 l3,-12 l3,6 h6
-    # Scale to 64x64 (with padding)
+    # Waveform matching logo: flat → peak up → drop → circle → deep V → recover → flat
     pad = 8
     w = SIZE - 2 * pad
-    h = SIZE
-    cx, cy = SIZE // 2, SIZE // 2
+    cy = SIZE // 2
 
     points = [
-        (pad, cy),                          # start flat
-        (pad + w * 5 / 28, cy),             # end of first flat
-        (pad + w * 8 / 28, cy - h * 0.25),  # peak up
-        (pad + w * 12 / 28, cy + h * 0.35), # deep trough
-        (pad + w * 15 / 28, cy - h * 0.2),  # second peak
-        (pad + w * 18 / 28, cy + h * 0.05), # small dip
-        (pad + w * 22 / 28, cy),            # return to center
-        (SIZE - pad, cy),                   # end flat
+        (pad, cy + 2),                        # start flat
+        (pad + w * 0.14, cy + 2),              # end flat
+        (pad + w * 0.22, cy - 4),              # gentle rise
+        (pad + w * 0.30, cy - w * 0.42),       # sharp peak UP
+        (pad + w * 0.40, cy + w * 0.30),       # drop below center
+        (pad + w * 0.47, cy),                  # cross center (circle here)
+        (pad + w * 0.55, cy + 2),              # slight dip
+        (pad + w * 0.62, cy + w * 0.35),       # deep V down
+        (pad + w * 0.72, cy - w * 0.22),       # sharp recovery up
+        (pad + w * 0.80, cy + 2),              # settle back
+        (SIZE - pad, cy + 2),                  # end flat
     ]
 
-    # Draw gradient segments (cyan → blue → purple)
+    # Gradient segments (cyan → blue → purple)
     colors = [
-        (6, 182, 212),   # cyan
-        (6, 182, 212),   # cyan
-        (20, 140, 230),  # cyan-blue
-        (59, 130, 246),  # blue
-        (100, 100, 230), # blue-purple
-        (139, 92, 246),  # purple
-        (139, 92, 246),  # purple
+        (6, 182, 212),    # cyan
+        (6, 182, 212),    # cyan
+        (6, 182, 212),    # cyan
+        (20, 156, 230),   # cyan-blue
+        (40, 140, 240),   # blue
+        (59, 130, 246),   # blue
+        (80, 110, 240),   # blue-purple
+        (120, 96, 246),   # purple
+        (139, 92, 246),   # purple
+        (139, 92, 246),   # purple
     ]
     for i in range(len(points) - 1):
         d.line([points[i], points[i + 1]], fill=colors[i], width=3)
+
+    # Circle/dot at the center crossing point
+    cx_dot = int(pad + w * 0.47)
+    cy_dot = cy
+    d.ellipse([cx_dot - 4, cy_dot - 4, cx_dot + 4, cy_dot + 4],
+              fill=(59, 130, 246, 80))
+    d.ellipse([cx_dot - 2, cy_dot - 2, cx_dot + 2, cy_dot + 2],
+              fill=(59, 130, 246, 220))
 
     return img
 
