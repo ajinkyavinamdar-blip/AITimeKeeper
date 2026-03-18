@@ -358,7 +358,7 @@
 
     // ─── Data Fetch ─────────────────────────────────────────────────────────────
     async function fetchAll() {
-        const timelineView = viewMode === 'day' ? 'day' : 'week';
+        const timelineView = viewMode;
         const dateStr = getCurrentDateStr();
         const [teamRes, timelineRes] = await Promise.all([
             fetch(`/api/team/summary?start=${startDate}&end=${endDate}`),

@@ -88,7 +88,7 @@
     <div class="flex h-screen overflow-hidden">
         <!-- Sidebar -->
         <div
-            class="w-20 lg:w-64 bg-slate-950 text-slate-400 flex-shrink-0 border-r border-slate-800 transition-all duration-300">
+            class="w-20 lg:w-64 bg-slate-950 text-slate-400 flex-shrink-0 border-r border-slate-800 transition-all duration-300 relative">
             <div class="p-4 lg:p-5 flex items-center justify-center lg:justify-start">
                 <h1 class="text-xl font-bold flex items-center gap-3 text-white overflow-hidden whitespace-nowrap">
                     <div
@@ -162,6 +162,33 @@
                 {% endif %}
             </nav>
 
+            <!-- Agent Version Widget (bottom of sidebar) -->
+            <div class="absolute bottom-0 left-0 right-0 p-3" id="agent-version-widget">
+                <div class="bg-slate-900/60 rounded-xl p-3 border border-slate-800/50">
+                    <div class="flex items-center justify-between">
+                        <div class="hidden lg:block">
+                            <div class="text-[9px] text-slate-600 uppercase tracking-wider font-semibold">Desktop Agent</div>
+                            <div class="text-[11px] text-slate-400 font-mono font-bold mt-0.5" id="agent-ver-current">checking...</div>
+                        </div>
+                        <div class="lg:hidden flex items-center justify-center w-full">
+                            <div class="text-[9px] text-slate-500 font-mono" id="agent-ver-short">...</div>
+                        </div>
+                    </div>
+                    <div id="agent-update-banner" class="hidden mt-2">
+                        <div class="flex items-center gap-1.5 mb-1.5">
+                            <div class="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse"></div>
+                            <span class="text-[9px] text-amber-400 font-bold uppercase tracking-wider hidden lg:inline">Update available</span>
+                        </div>
+                        <a id="agent-update-link" href="#" target="_blank"
+                            class="hidden lg:flex items-center justify-center gap-1.5 w-full py-1.5 px-2 bg-indigo-600/20 hover:bg-indigo-600/40 border border-indigo-500/30 text-indigo-400 text-[10px] font-bold rounded-lg transition-all">
+                            <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                            </svg>
+                            <span id="agent-update-ver">Download</span>
+                        </a>
+                    </div>
+                </div>
+            </div>
         </div>
 
         <!-- Main Content -->
@@ -227,6 +254,77 @@
         }
         setInterval(updateTime, 1000);
         updateTime();
+
+        // Agent version check
+        (async function checkAgentVersion() {
+            try {
+                // 1. Get installed agent version from our backend
+                const myRes = await fetch('/api/me/agent-version');
+                const myData = await myRes.json();
+                const installed = myData.agent_version || null;
+
+                const curEl = document.getElementById('agent-ver-current');
+                const shortEl = document.getElementById('agent-ver-short');
+
+                if (!installed) {
+                    if (curEl) curEl.textContent = 'Not installed';
+                    if (shortEl) shortEl.textContent = 'N/A';
+                } else {
+                    if (curEl) curEl.textContent = `v${installed}`;
+                    if (shortEl) shortEl.textContent = `v${installed}`;
+                }
+
+                // 2. Check latest release from GitHub
+                const ghRes = await fetch('https://api.github.com/repos/ajinkyavinamdar-blip/AITimeKeeper/releases/latest');
+                if (!ghRes.ok) return;
+                const rel = await ghRes.json();
+                const latest = (rel.tag_name || '').replace(/^v/, '');
+
+                if (!installed || !latest) return;
+
+                // Simple semver comparison
+                const installedParts = installed.split('.').map(Number);
+                const latestParts = latest.split('.').map(Number);
+                let needsUpdate = false;
+                for (let i = 0; i < 3; i++) {
+                    if ((latestParts[i] || 0) > (installedParts[i] || 0)) { needsUpdate = true; break; }
+                    if ((latestParts[i] || 0) < (installedParts[i] || 0)) break;
+                }
+
+                if (needsUpdate) {
+                    const banner = document.getElementById('agent-update-banner');
+                    if (banner) banner.classList.remove('hidden');
+
+                    const verSpan = document.getElementById('agent-update-ver');
+                    if (verSpan) verSpan.textContent = `v${latest}`;
+
+                    // Find the right download link (Mac or Windows based on user agent)
+                    const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0;
+                    const assets = rel.assets || [];
+                    let downloadUrl = rel.html_url; // fallback to release page
+                    for (const a of assets) {
+                        if (isMac && a.name.includes('Mac')) { downloadUrl = a.browser_download_url; break; }
+                        if (!isMac && a.name.includes('Windows')) { downloadUrl = a.browser_download_url; break; }
+                    }
+                    const link = document.getElementById('agent-update-link');
+                    if (link) link.href = downloadUrl;
+
+                    // Also highlight the current version
+                    if (curEl) {
+                        curEl.textContent = `v${installed} (outdated)`;
+                        curEl.classList.add('text-amber-400');
+                        curEl.classList.remove('text-slate-400');
+                    }
+                } else {
+                    // Up to date
+                    if (curEl) {
+                        curEl.innerHTML = `v${installed} <span class="text-emerald-500 text-[8px]">&#10003; latest</span>`;
+                    }
+                }
+            } catch (e) {
+                console.debug('Version check failed:', e);
+            }
+        })();
     </script>
 </body>
 

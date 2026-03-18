@@ -54,12 +54,55 @@ class MacObserver:
         )
 
         url = ""
+        filename = ""
+
         if app_name in ["Google Chrome", "Microsoft Edge", "Arc", "Brave Browser"]:
             url = self._run(f'tell application "{app_name}" to get URL of active tab of front window')
         elif app_name == "Safari":
             url = self._run('tell application "Safari" to get URL of document 1')
-
-        filename = window_title if app_name in ["Microsoft Word", "Microsoft Excel"] else ""
+        elif app_name == "Microsoft Excel":
+            # Get the actual file name from Excel's scripting interface
+            filename = self._run(
+                'tell application "Microsoft Excel" to get name of active workbook'
+            )
+            if not filename:
+                filename = window_title  # fallback to window title
+        elif app_name == "Microsoft Word":
+            filename = self._run(
+                'tell application "Microsoft Word" to get name of active document'
+            )
+            if not filename:
+                filename = window_title
+        elif app_name == "Microsoft PowerPoint":
+            filename = self._run(
+                'tell application "Microsoft PowerPoint" to get name of active presentation'
+            )
+            if not filename:
+                filename = window_title
+        elif app_name in ["Numbers", "Pages", "Keynote"]:
+            # Apple iWork apps
+            filename = self._run(
+                f'tell application "{app_name}" to get name of front document'
+            )
+            if not filename:
+                filename = window_title
+        elif app_name == "Preview":
+            filename = self._run(
+                'tell application "Preview" to get name of front document'
+            )
+            if not filename:
+                filename = window_title
+        elif app_name == "Finder":
+            # Get the current Finder window path
+            filename = self._run(
+                'tell application "Finder" to get POSIX path of (target of front Finder window as alias)'
+            )
+            if not filename:
+                filename = window_title
+        elif app_name in ["Microsoft Teams", "Microsoft Teams (work or school)",
+                          "Microsoft Teams classic"]:
+            # Teams window title usually shows channel/chat name
+            filename = window_title
 
         return Activity(
             app_name=app_name,

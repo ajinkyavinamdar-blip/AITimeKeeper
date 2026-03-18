@@ -60,9 +60,9 @@
                 The agent runs silently in your system tray, records your activity,
                 and sends logs securely to this dashboard.
             </p>
-            <div class="flex gap-3">
+            <div class="flex gap-3" id="download-buttons">
                 <a id="btn-download-mac"
-                    href="https://github.com/ajinkyavinamdar-blip/AITimeKeeper/releases/latest/download/AITimeKeeper-Mac-1.4.5.zip"
+                    href="#"
                     class="flex-1 flex items-center justify-center gap-2 bg-slate-700/70 hover:bg-slate-600/80 border border-slate-600/50 text-white text-sm font-semibold py-3 px-4 rounded-xl transition-all active:scale-[0.97] group">
                     <svg class="w-5 h-5 text-slate-300 group-hover:text-white transition-colors" viewBox="0 0 24 24"
                         fill="currentColor">
@@ -72,7 +72,7 @@
                     Mac (.zip)
                 </a>
                 <a id="btn-download-win"
-                    href="https://github.com/ajinkyavinamdar-blip/AITimeKeeper/releases/latest/download/AITimeKeeper-Windows.exe"
+                    href="#"
                     class="flex-1 flex items-center justify-center gap-2 bg-slate-700/70 hover:bg-slate-600/80 border border-slate-600/50 text-white text-sm font-semibold py-3 px-4 rounded-xl transition-all active:scale-[0.97] group">
                     <svg class="w-5 h-5 text-slate-300 group-hover:text-white transition-colors" viewBox="0 0 24 24"
                         fill="currentColor">
@@ -83,8 +83,31 @@
                 </a>
             </div>
             <p class="text-center text-[10px] text-slate-600 mt-3">
-                After installing, sign in here to get your personal API token from the dashboard.
+                Supports macOS 13 (Ventura) and later &middot; Windows 10 and later
             </p>
+            <script>
+                // Dynamically resolve download links from latest GitHub release
+                (async function() {
+                    try {
+                        const res = await fetch('https://api.github.com/repos/ajinkyavinamdar-blip/AITimeKeeper/releases/latest');
+                        const rel = await res.json();
+                        const assets = rel.assets || [];
+                        for (const a of assets) {
+                            if (a.name.includes('Mac') && a.name.endsWith('.zip')) {
+                                document.getElementById('btn-download-mac').href = a.browser_download_url;
+                            } else if (a.name.includes('Windows')) {
+                                document.getElementById('btn-download-win').href = a.browser_download_url;
+                            }
+                        }
+                    } catch(e) {
+                        // Fallback to latest tag pattern
+                        document.getElementById('btn-download-mac').href =
+                            'https://github.com/ajinkyavinamdar-blip/AITimeKeeper/releases/latest';
+                        document.getElementById('btn-download-win').href =
+                            'https://github.com/ajinkyavinamdar-blip/AITimeKeeper/releases/latest';
+                    }
+                })();
+            </script>
         </div>
     </div>
 </body>

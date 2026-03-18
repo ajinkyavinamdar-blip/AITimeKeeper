@@ -18,6 +18,8 @@ import threading
 import logging
 import traceback
 
+AGENT_VERSION = '1.4.6'
+
 import psutil
 
 import config
@@ -296,6 +298,9 @@ class AgentLoop:
         self.running = True
         self.idle_filter.start()
 
+        # Check server pause state BEFORE starting to track
+        self._check_initial_pause_state()
+
         # Recover any unsent buffer from previous crash
         recovered = _load_buffer_from_disk()
         if recovered:
@@ -308,8 +313,29 @@ class AgentLoop:
         self._start_thread('control', self._control_poll_loop)
         self._start_thread('watchdog', self._watchdog_loop)
 
-        log.info(f"Tracking started for {self.cfg['user_email']}")
+        log.info(f"Tracking started for {self.cfg['user_email']}"
+                 f"{' (PAUSED via server)' if self.paused else ''}")
         self._track_loop()
+
+    def _check_initial_pause_state(self):
+        """On startup, check if the server has us paused (e.g. user paused from web UI
+        before a reboot). This prevents tracking in the gap before the first control poll."""
+        import requests as _req
+        try:
+            server_url = self.cfg.get('server_url', '').rstrip('/')
+            token = self.cfg.get('api_token', '')
+            resp = _req.get(
+                f"{server_url}/api/agent/poll",
+                headers={"Authorization": f"Bearer {token}"},
+                timeout=10,
+            )
+            if resp.status_code == 200:
+                data = resp.json()
+                if data.get('paused'):
+                    self.paused = True
+                    log.info("Server indicates PAUSED state on startup")
+        except Exception as e:
+            log.debug(f"Could not check initial pause state: {e}")
 
     def _start_thread(self, name, target):
         """Start a named daemon thread, tracked for watchdog restarts."""
@@ -437,13 +463,19 @@ class AgentLoop:
                     _consecutive_poll_errors = 0
                     server_paused = bool(data.get('paused', False))
                     if server_paused and not self.paused:
+                        log.info("Server says PAUSED — pausing tracking")
                         self.pause()
                     elif not server_paused and self.paused:
+                        log.info("Server says RESUME — resuming tracking")
                         self.resume()
                 elif resp.status_code == 404:
                     # Endpoint doesn't exist on this server — stop polling
                     log.info("Control poll endpoint not available (404), disabling server pause sync")
                     return
+                elif resp.status_code == 401:
+                    if _consecutive_poll_errors == 0:
+                        log.warning("Control poll: 401 Unauthorized — check API token")
+                    _consecutive_poll_errors += 1
             except Exception as e:
                 _consecutive_poll_errors += 1
                 # Only log first occurrence and then every 10th to avoid spam
@@ -547,7 +579,7 @@ def _build_tray_icon(loop):
             return 'Resume Tracking' if loop.paused else 'Pause Tracking'
 
         # Info items — displayed grayed-out, non-clickable
-        version    = '1.4.4'
+        version    = AGENT_VERSION
 
         def noop(icon, item):
             pass
@@ -592,7 +624,7 @@ def _build_tray_icon(loop):
 
 def main():
     log.info("=" * 60)
-    log.info("AITimeKeeper agent starting (v1.4.5)")
+    log.info(f"AITimeKeeper agent starting (v{AGENT_VERSION})")
     log.info(f"Platform: {platform.system()} {platform.release()}")
     log.info(f"Python: {sys.version}")
     log.info(f"PID: {os.getpid()}")
@@ -618,6 +650,8 @@ def main():
             log.error("Agent cannot start without configuration. Exiting.")
             sys.exit(1)
 
+    # Inject version so uploader can report it in ingest payload
+    cfg['agent_version'] = AGENT_VERSION
     loop = AgentLoop(cfg)
 
     tray_icon = _build_tray_icon(loop)

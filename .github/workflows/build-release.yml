@@ -1,0 +1,113 @@
+name: Build & Release Desktop Agent
+
+on:
+  push:
+    tags:
+      - 'v*'   # Trigger on version tags like v1.4.6
+
+jobs:
+  build-mac:
+    runs-on: macos-13   # Ventura — ensures compatibility with macOS 13+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'   # Stable, widely compatible
+
+      - name: Install dependencies
+        working-directory: agent_client
+        run: |
+          pip install pyinstaller pynput requests pyobjc-framework-Cocoa
+
+      - name: Build .app bundle
+        working-directory: agent_client
+        run: |
+          python -m PyInstaller AITimeKeeper.spec --clean --noconfirm
+
+      - name: Zip .app bundle
+        working-directory: agent_client/dist
+        run: |
+          VERSION=${GITHUB_REF_NAME}   # e.g. v1.4.6
+          zip -r "AITimeKeeper-Mac-${VERSION}.zip" AITimeKeeper.app
+          echo "MAC_ZIP=AITimeKeeper-Mac-${VERSION}.zip" >> $GITHUB_ENV
+
+      - name: Upload Mac artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: mac-build
+          path: agent_client/dist/${{ env.MAC_ZIP }}
+
+  build-windows:
+    runs-on: windows-latest   # Windows Server 2022 — .exe works on Win 10+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        working-directory: agent_client
+        run: |
+          pip install pyinstaller pynput requests pywin32 psutil uiautomation
+
+      - name: Build .exe
+        working-directory: agent_client
+        run: |
+          python -m PyInstaller AITimeKeeper.spec --clean --noconfirm
+
+      - name: Rename and zip
+        working-directory: agent_client/dist
+        shell: bash
+        run: |
+          VERSION=${GITHUB_REF_NAME}
+          mv AITimeKeeper.exe "AITimeKeeper-Windows-${VERSION}.exe" 2>/dev/null || true
+          # If .exe exists at top level (onefile mode)
+          if [ -f "AITimeKeeper-Windows-${VERSION}.exe" ]; then
+            echo "WIN_EXE=AITimeKeeper-Windows-${VERSION}.exe" >> $GITHUB_ENV
+          else
+            # onedir mode — zip the folder
+            powershell Compress-Archive -Path AITimeKeeper -DestinationPath "AITimeKeeper-Windows-${VERSION}.zip"
+            echo "WIN_EXE=AITimeKeeper-Windows-${VERSION}.zip" >> $GITHUB_ENV
+          fi
+
+      - name: Upload Windows artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-build
+          path: agent_client/dist/${{ env.WIN_EXE }}
+
+  release:
+    needs: [build-mac, build-windows]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          name: "${{ github.ref_name }} — Desktop Agent"
+          draft: false
+          prerelease: false
+          files: |
+            artifacts/mac-build/*
+            artifacts/windows-build/*
+          body: |
+            ## AI TimeKeeper Desktop Agent ${{ github.ref_name }}
+
+            ### Downloads
+            - **Mac** (macOS 13 Ventura and later): `AITimeKeeper-Mac-${{ github.ref_name }}.zip`
+            - **Windows** (Windows 10 and later): `AITimeKeeper-Windows-${{ github.ref_name }}.exe`
+
+            ### Installation
+            **Mac**: Download the .zip, extract, drag `AITimeKeeper.app` to Applications.
+            **Windows**: Download the .exe and run it.

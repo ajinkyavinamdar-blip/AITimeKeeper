@@ -378,26 +378,29 @@ def finalize_bucket(bucket):
         'ids': bucket['ids']
     }
 
-def get_score_stats(date_str=None):
+def get_score_stats(date_str=None, user_email=None):
     conn = get_db_connection()
     try:
         c = conn.cursor(cursor_factory=RealDictCursor)
-        
+
         if not date_str:
             date_str = datetime.datetime.now().strftime('%Y-%m-%d')
         start_time = f"{date_str} 00:00:00"
         end_time = f"{date_str} 23:59:59"
-        
-        c.execute('''
-            SELECT a.duration, c.name as category, c.is_focus 
+
+        ue_sql, ue_params = _ue_clause(user_email, alias='a')
+
+        c.execute(f'''
+            SELECT a.duration, c.name as category, c.is_focus
             FROM activities a
             LEFT JOIN categories c ON a.category_id = c.id
-            WHERE a.timestamp >= %s AND a.timestamp <= %s
-        ''', (start_time, end_time))
-        
+            WHERE a.timestamp >= %s AND a.timestamp <= %s{ue_sql}
+        ''', [start_time, end_time] + ue_params)
+
         rows = [dict(r) for r in c.fetchall()]
-        
-        c.execute("SELECT MIN(timestamp), MAX(timestamp) FROM activities WHERE timestamp >= %s AND timestamp <= %s", (start_time, end_time))
+
+        ue_sql_plain, ue_params_plain = _ue_clause(user_email, alias='')
+        c.execute(f"SELECT MIN(timestamp), MAX(timestamp) FROM activities WHERE timestamp >= %s AND timestamp <= %s{ue_sql_plain}", [start_time, end_time] + ue_params_plain)
         ts_row = c.fetchone()
         first_activity_ts = ts_row['min']
         last_activity_ts = ts_row['max']
@@ -445,29 +448,31 @@ def get_score_stats(date_str=None):
     finally:
         release_db_connection(conn)
 
-def get_timeline_stats(date_str=None):
+def get_timeline_stats(date_str=None, user_email=None):
     conn = get_db_connection()
     try:
         c = conn.cursor(cursor_factory=RealDictCursor)
-        
+
         if not date_str:
             date_str = datetime.datetime.now().strftime('%Y-%m-%d')
         start_time = f"{date_str} 00:00:00"
         end_time = f"{date_str} 23:59:59"
-        
-        c.execute('''
+
+        ue_sql, ue_params = _ue_clause(user_email, alias='a')
+
+        c.execute(f'''
             SELECT a.duration, a.timestamp, c.name as category, c.is_focus
             FROM activities a
             LEFT JOIN categories c ON a.category_id = c.id
-            WHERE a.timestamp >= %s AND a.timestamp <= %s
+            WHERE a.timestamp >= %s AND a.timestamp <= %s{ue_sql}
             ORDER BY a.timestamp ASC
-        ''', (start_time, end_time))
+        ''', [start_time, end_time] + ue_params)
         
         rows = [dict(r) for r in c.fetchall()]
         
         start_h = 8
-        end_h = 22
-        
+        end_h = 23  # show up to 12 AM (11 PM is last hourly bucket)
+
         if rows:
             first_h = datetime.datetime.strptime(rows[0]['timestamp'][:19], '%Y-%m-%d %H:%M:%S').hour
             last_h = datetime.datetime.strptime(rows[-1]['timestamp'][:19], '%Y-%m-%d %H:%M:%S').hour
@@ -521,7 +526,7 @@ def get_current_session_info(date_str=None, user_email=None):
         if not rows:
             return None
             
-        gap_threshold = datetime.timedelta(minutes=5)
+        gap_threshold = datetime.timedelta(minutes=10)
         session_start = rows[0]['timestamp']
         
         for i in range(1, len(rows)):
@@ -535,20 +540,20 @@ def get_current_session_info(date_str=None, user_email=None):
     finally:
         release_db_connection(conn)
 
-def get_weekly_score_stats(date_str=None):
+def get_weekly_score_stats(date_str=None, user_email=None):
     if not date_str:
         date_str = datetime.datetime.now().strftime('%Y-%m-%d')
-    
+
     end_dt = datetime.datetime.strptime(date_str, '%Y-%m-%d')
-    
+
     total_focus = 0
     total_meeting = 0
     total_break = 0
     total_elapsed = 0
-    
+
     for i in range(7):
         d_str = (end_dt - datetime.timedelta(days=i)).strftime('%Y-%m-%d')
-        day_stats = get_score_stats(d_str)
+        day_stats = get_score_stats(d_str, user_email=user_email)
         total_focus += day_stats['focus']['time']
         total_meeting += day_stats['meeting']['time']
         total_break += day_stats['break']['time']
@@ -563,23 +568,27 @@ def get_weekly_score_stats(date_str=None):
         'total_elapsed': int(total_elapsed)
     }
 
-def get_weekly_timeline_stats(date_str=None):
+def get_weekly_timeline_stats(date_str=None, user_email=None):
+    """Return one bar per day for the week containing date_str (Mon→Sun)."""
     if not date_str:
         date_str = datetime.datetime.now().strftime('%Y-%m-%d')
-    
+
     ref_dt = datetime.datetime.strptime(date_str, '%Y-%m-%d')
-    
+
+    # Find Monday of this week (weekday(): Mon=0 … Sun=6)
+    monday = ref_dt - datetime.timedelta(days=ref_dt.weekday())
+
     result = []
-    for i in range(6, -1, -1):
-        d_dt = ref_dt - datetime.timedelta(days=i)
+    for i in range(7):  # Mon(0) through Sun(6)
+        d_dt = monday + datetime.timedelta(days=i)
         d_str = d_dt.strftime('%Y-%m-%d')
-        
-        day_timeline = get_timeline_stats(d_str)
-        
+
+        day_timeline = get_timeline_stats(d_str, user_email=user_email)
+
         total_focus = sum(h['focus'] for h in day_timeline)
         total_comms = sum(h['comms'] for h in day_timeline)
         total_all = sum(h['total'] for h in day_timeline)
-        
+
         result.append({
             'hour': d_dt.strftime('%a'),
             'focus': total_focus,
@@ -587,7 +596,7 @@ def get_weekly_timeline_stats(date_str=None):
             'total': total_all,
             'date_full': d_str
         })
-        
+
     return result
 
 
@@ -651,7 +660,7 @@ def get_monthly_summary_stats(date_str=None, user_email=None):
         release_db_connection(conn)
 
 
-def get_monthly_score_stats(date_str=None):
+def get_monthly_score_stats(date_str=None, user_email=None):
     """Aggregate focus/meeting/break scores for the full calendar month."""
     if not date_str:
         date_str = datetime.datetime.now().strftime('%Y-%m-%d')
@@ -667,7 +676,7 @@ def get_monthly_score_stats(date_str=None):
 
     for day in range(1, num_days + 1):
         d_str = f'{year}-{month:02d}-{day:02d}'
-        day_stats = get_score_stats(d_str)
+        day_stats = get_score_stats(d_str, user_email=user_email)
         total_focus   += day_stats['focus']['time']
         total_meeting += day_stats['meeting']['time']
         total_break   += day_stats['break']['time']
@@ -682,7 +691,7 @@ def get_monthly_score_stats(date_str=None):
     }
 
 
-def get_monthly_timeline_stats(date_str=None):
+def get_monthly_timeline_stats(date_str=None, user_email=None):
     """Return one bar per day for the full calendar month (day-of-month as label)."""
     if not date_str:
         date_str = datetime.datetime.now().strftime('%Y-%m-%d')
@@ -696,7 +705,7 @@ def get_monthly_timeline_stats(date_str=None):
         d_dt  = datetime.datetime(year, month, day)
         d_str = d_dt.strftime('%Y-%m-%d')
 
-        day_timeline = get_timeline_stats(d_str)
+        day_timeline = get_timeline_stats(d_str, user_email=user_email)
 
         total_focus = sum(h['focus'] for h in day_timeline)
         total_comms = sum(h['comms'] for h in day_timeline)

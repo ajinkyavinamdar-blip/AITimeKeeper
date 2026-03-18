@@ -169,6 +169,9 @@ def init_db():
         c.execute("""
             ALTER TABLE users ADD COLUMN IF NOT EXISTS last_agent_heartbeat TIMESTAMP
         """)
+        c.execute("""
+            ALTER TABLE users ADD COLUMN IF NOT EXISTS agent_version TEXT DEFAULT NULL
+        """)
 
         # ── Performance indexes ──────────────────────────────────────────────
         c.execute("CREATE INDEX IF NOT EXISTS idx_activities_timestamp ON activities(timestamp)")
@@ -969,21 +972,22 @@ def add_category_mapping(category_id, pattern_type, pattern_value):
         release_db_connection(conn)
 
 # --- Analysis ---
-def get_work_blocks(date_str=None):
+def get_work_blocks(date_str=None, user_email=None):
     conn = get_db_connection()
     try:
         c = conn.cursor(cursor_factory=RealDictCursor)
-        
+
         if not date_str:
             date_str = datetime.datetime.now().strftime('%Y-%m-%d')
         start_time = f"{date_str} 00:00:00"
         end_time = f"{date_str} 23:59:59"
-        
-        c.execute('''
-            SELECT * FROM activities 
-            WHERE timestamp >= %s AND timestamp <= %s
+
+        ue_sql, ue_params = _user_email_clause(user_email, alias='')
+        c.execute(f'''
+            SELECT * FROM activities
+            WHERE timestamp >= %s AND timestamp <= %s{ue_sql}
             ORDER BY timestamp ASC
-        ''', (start_time, end_time))
+        ''', [start_time, end_time] + ue_params)
         rows = [dict(row) for row in c.fetchall()]
         
         if not rows:
@@ -1108,16 +1112,32 @@ def get_user_paused(email: str) -> bool:
     finally:
         release_db_connection(conn)
 
-def update_agent_heartbeat(email: str):
-    """Update the last_agent_heartbeat timestamp for a user (called on each successful ingest)."""
+def update_agent_heartbeat(email: str, agent_version: str = None):
+    """Update the last_agent_heartbeat timestamp (and optionally version) for a user."""
     conn = get_db_connection()
     try:
         c = conn.cursor()
-        c.execute("UPDATE users SET last_agent_heartbeat = NOW() WHERE LOWER(email) = LOWER(%s)", (email,))
+        if agent_version:
+            c.execute("UPDATE users SET last_agent_heartbeat = NOW(), agent_version = %s WHERE LOWER(email) = LOWER(%s)",
+                      (agent_version, email))
+        else:
+            c.execute("UPDATE users SET last_agent_heartbeat = NOW() WHERE LOWER(email) = LOWER(%s)", (email,))
         conn.commit()
     except Exception as e:
         conn.rollback()
         print(f"[update_agent_heartbeat] error: {e}")
+    finally:
+        release_db_connection(conn)
+
+
+def get_user_agent_version(email: str):
+    """Return the agent version string for a user, or None."""
+    conn = get_db_connection()
+    try:
+        c = conn.cursor(cursor_factory=RealDictCursor)
+        c.execute("SELECT agent_version FROM users WHERE LOWER(email) = LOWER(%s)", (email,))
+        row = c.fetchone()
+        return row['agent_version'] if row else None
     finally:
         release_db_connection(conn)
 
@@ -1128,7 +1148,7 @@ def get_all_agent_status():
     try:
         c = conn.cursor(cursor_factory=RealDictCursor)
         c.execute("""
-            SELECT email, name, is_paused, last_agent_heartbeat,
+            SELECT email, name, is_paused, last_agent_heartbeat, agent_version,
                    EXTRACT(EPOCH FROM (NOW() - last_agent_heartbeat)) as seconds_ago
             FROM users
             ORDER BY last_agent_heartbeat DESC NULLS LAST
@@ -1151,6 +1171,7 @@ def get_all_agent_status():
                 'last_heartbeat': r['last_agent_heartbeat'].isoformat() if r['last_agent_heartbeat'] else None,
                 'seconds_ago': int(sec) if sec is not None else None,
                 'status': status,
+                'agent_version': r.get('agent_version'),
             })
         return rows
     finally:

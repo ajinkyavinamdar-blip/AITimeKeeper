@@ -43,7 +43,7 @@ def post_batch(cfg: dict, logs: list) -> bool:
             resp = requests.post(
                 f"{server_url}/api/ingest",
                 headers={"Authorization": f"Bearer {token}", "Content-Type": "application/json"},
-                json={"logs": logs},
+                json={"logs": logs, "agent_version": cfg.get("agent_version", "")},
                 timeout=TIMEOUT,
             )
             if resp.status_code == 401:
@@ -113,7 +113,7 @@ def _drain_queue(cfg: dict):
         resp = requests.post(
             f"{server_url}/api/ingest",
             headers={"Authorization": f"Bearer {token}", "Content-Type": "application/json"},
-            json={"logs": queued},
+            json={"logs": queued, "agent_version": cfg.get("agent_version", "")},
             timeout=TIMEOUT,
         )
         resp.raise_for_status()

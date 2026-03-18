@@ -19,7 +19,7 @@ from ..database import (
     # Pause/resume
     set_user_paused, get_user_paused,
     # Agent health
-    update_agent_heartbeat, get_all_agent_status,
+    update_agent_heartbeat, get_all_agent_status, get_user_agent_version,
     SEED_ADMIN_EMAIL
 )
 from ..db_extensions import (
@@ -183,17 +183,17 @@ def api_dashboard():
 
     def _scores():
         if view == 'month':
-            return get_monthly_score_stats(date_str)
+            return get_monthly_score_stats(date_str, user_email=user_email)
         elif view == 'week':
-            return get_weekly_score_stats(date_str)
-        return get_score_stats(date_str)
+            return get_weekly_score_stats(date_str, user_email=user_email)
+        return get_score_stats(date_str, user_email=user_email)
 
     def _timeline():
         if view == 'month':
-            return get_monthly_timeline_stats(date_str)
+            return get_monthly_timeline_stats(date_str, user_email=user_email)
         elif view == 'week':
-            return get_weekly_timeline_stats(date_str)
-        return get_timeline_stats(date_str)
+            return get_weekly_timeline_stats(date_str, user_email=user_email)
+        return get_timeline_stats(date_str, user_email=user_email)
 
     def _work_stats():
         activities = get_todays_activities(date_str, user_email=user_email)
@@ -209,7 +209,7 @@ def api_dashboard():
 
     def _work_blocks():
         try:
-            return get_work_blocks(date_str=date_str)
+            return get_work_blocks(date_str=date_str, user_email=user_email)
         except Exception:
             return []
 
@@ -244,7 +244,7 @@ def api_dashboard():
         return get_aggregated_activities(minutes=10, date_str=date_str, user_email=user_email)
 
     def _focus_stats():
-        rows = get_todays_activities(date_str)
+        rows = get_todays_activities(date_str, user_email=user_email)
         cats = {c['id']: c for c in get_categories()}
         total_time = focus_time = 0
         for row in rows:
@@ -492,24 +492,26 @@ def api_assign_category_bulk():
 def api_scores():
     date_str = request.args.get('date')
     view = request.args.get('view')
+    user_email = g.user['email'] if g.user else None
     if view == 'month':
-        stats = get_monthly_score_stats(date_str)
+        stats = get_monthly_score_stats(date_str, user_email=user_email)
     elif view == 'week':
-        stats = get_weekly_score_stats(date_str)
+        stats = get_weekly_score_stats(date_str, user_email=user_email)
     else:
-        stats = get_score_stats(date_str)
+        stats = get_score_stats(date_str, user_email=user_email)
     return jsonify(stats)
 
 @app.route('/api/timeline')
 def api_timeline():
     date_str = request.args.get('date')
     view = request.args.get('view')
+    user_email = g.user['email'] if g.user else None
     if view == 'month':
-        stats = get_monthly_timeline_stats(date_str)
+        stats = get_monthly_timeline_stats(date_str, user_email=user_email)
     elif view == 'week':
-        stats = get_weekly_timeline_stats(date_str)
+        stats = get_weekly_timeline_stats(date_str, user_email=user_email)
     else:
-        stats = get_timeline_stats(date_str)
+        stats = get_timeline_stats(date_str, user_email=user_email)
     return jsonify(stats)
 
 @app.route('/api/work_stats')
@@ -532,8 +534,9 @@ def api_work_stats():
 @app.route('/api/work_blocks')
 def api_work_blocks():
     date_str = request.args.get('date')
+    user_email = g.user['email'] if g.user else None
     try:
-        blocks = get_work_blocks(date_str=date_str) 
+        blocks = get_work_blocks(date_str=date_str, user_email=user_email)
         return jsonify(blocks)
     except Exception as e:
         print(f"Error getting work blocks: {e}")
@@ -662,7 +665,16 @@ def api_status():
 
 @app.route('/api/control/<action>', methods=['POST'])
 def api_control(action):
+    # Support both session-based (web UI) and token-based (desktop agent) auth
     user_email = session.get('user_id')
+    if not user_email:
+        auth_header = request.headers.get('Authorization', '')
+        token = auth_header.removeprefix('Bearer ').strip()
+        if token:
+            user_email = get_user_email_by_token(token)
+
+    if not user_email:
+        return jsonify({'error': 'Not authenticated'}), 401
 
     if agent_ref:
         # Local mode — control the in-process agent directly
@@ -675,12 +687,10 @@ def api_control(action):
     else:
         # Cloud mode — persist pause state in DB; desktop agent polls /api/agent/poll
         if action in ('pause', 'break_start'):
-            if user_email:
-                set_user_paused(user_email, True)
+            set_user_paused(user_email, True)
             return jsonify({'status': 'paused', 'message': 'Tracking paused — desktop agent will stop within 30 s'})
         elif action in ('resume', 'break_end'):
-            if user_email:
-                set_user_paused(user_email, False)
+            set_user_paused(user_email, False)
             return jsonify({'status': 'running', 'message': 'Tracking resumed'})
 
     return jsonify({'error': 'Invalid action'}), 400
@@ -779,10 +789,11 @@ def api_ingest():
             except Exception as row_err:
                 print(f"[ingest] Row insert failed: {row_err}")
 
-    # Update heartbeat so admin can monitor agent health per user
+    # Update heartbeat (and agent version if provided) so admin can monitor
+    agent_version = data.get('agent_version')
     if accepted > 0:
         try:
-            update_agent_heartbeat(user_email)
+            update_agent_heartbeat(user_email, agent_version=agent_version)
         except Exception as hb_err:
             print(f"[ingest] Heartbeat update failed: {hb_err}")
 
@@ -833,6 +844,15 @@ def api_rotate_token():
         return jsonify({'error': 'Not logged in'}), 401
     token = rotate_api_token(g.user['email'])
     return jsonify({'token': token, 'email': g.user['email']})
+
+
+@app.route('/api/me/agent-version')
+def api_my_agent_version():
+    """Returns the current user's installed agent version from last heartbeat."""
+    if not g.user:
+        return jsonify({'error': 'Not logged in'}), 401
+    version = get_user_agent_version(g.user['email'])
+    return jsonify({'agent_version': version})
 
 
 def start_server(agent=None):
