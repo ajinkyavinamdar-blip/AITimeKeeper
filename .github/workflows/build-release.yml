@@ -15,32 +15,20 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install universal2 Python from python.org
-        run: |
-          # GitHub's setup-python installs ARM-only Python on macos-latest.
-          # We need the universal2 installer from python.org for fat binaries.
-          curl -L -o python-installer.pkg \
-            "https://www.python.org/ftp/python/3.11.9/python-3.11.9-macos11.pkg"
-          sudo installer -pkg python-installer.pkg -target /
-          # Use the python.org Python (universal2)
-          export PATH="/Library/Frameworks/Python.framework/Versions/3.11/bin:$PATH"
-          echo "/Library/Frameworks/Python.framework/Versions/3.11/bin" >> $GITHUB_PATH
-          python3.11 --version
-          # Verify it's universal2
-          file "$(python3.11 -c 'import sys; print(sys.executable)')"
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
 
       - name: Install dependencies
         working-directory: agent_client
         run: |
-          python3.11 -m pip install --upgrade pip
-          python3.11 -m pip install pyinstaller pynput requests pyobjc-framework-Cocoa psutil
+          pip install pyinstaller pynput requests pyobjc-framework-Cocoa psutil
 
-      - name: Build universal .app bundle
+      - name: Build .app bundle
         working-directory: agent_client
         run: |
-          python3.11 -m PyInstaller AITimeKeeper.spec --clean --noconfirm
-          # Verify universal binary
-          file dist/AITimeKeeper.app/Contents/MacOS/AITimeKeeper || true
+          python -m PyInstaller AITimeKeeper.spec --clean --noconfirm
 
       - name: Zip .app bundle
         working-directory: agent_client/dist
