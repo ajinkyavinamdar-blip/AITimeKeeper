@@ -278,14 +278,14 @@
         <div class="bg-slate-800/50 rounded-2xl border border-slate-700/50 backdrop-blur-sm overflow-hidden">
             <div class="p-4 border-b border-slate-700/50">
                 <h2 class="text-sm font-bold text-white">All Clients</h2>
-                <p class="text-xs text-slate-500 mt-0.5">Only admins can add or edit clients — users select from this
-                    list when categorising logs</p>
+                <p class="text-xs text-slate-500 mt-0.5">Assign users to clients — users will only see their assigned clients in the dropdown</p>
             </div>
             <div class="overflow-x-auto">
                 <table class="w-full text-left text-sm">
                     <thead>
                         <tr class="text-[10px] uppercase tracking-wider text-slate-500 border-b border-slate-700/50">
                             <th class="px-5 py-3">Name</th>
+                            <th class="px-5 py-3">Assigned Users</th>
                             <th class="px-5 py-3">Notes</th>
                             <th class="px-5 py-3">Zoho Org ID</th>
                             <th class="px-5 py-3 text-right">Actions</th>
@@ -293,10 +293,32 @@
                     </thead>
                     <tbody id="clients-table-body" class="divide-y divide-slate-700/30">
                         <tr>
-                            <td colspan="3" class="text-center text-slate-500 text-xs py-10">Loading...</td>
+                            <td colspan="5" class="text-center text-slate-500 text-xs py-10">Loading...</td>
                         </tr>
                     </tbody>
                 </table>
+            </div>
+        </div>
+
+        <!-- Assign Users Modal -->
+        <div id="assign-users-modal" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+            <div class="bg-slate-900 border border-slate-700 rounded-3xl w-full max-w-md shadow-2xl overflow-hidden">
+                <div class="p-5 border-b border-slate-800 flex justify-between items-center">
+                    <h3 class="text-sm font-bold text-white">Assign Users to <span id="assign-client-name" class="text-amber-400"></span></h3>
+                    <button onclick="closeAssignModal()" class="text-slate-500 hover:text-white transition-colors">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                    </button>
+                </div>
+                <div class="p-5">
+                    <input type="text" id="assign-user-search" placeholder="Search users..."
+                        class="w-full bg-slate-800 border border-slate-700 text-white text-xs rounded-xl px-4 py-2.5 outline-none focus:border-amber-500 mb-3"
+                        oninput="filterAssignUsers()">
+                    <div id="assign-user-list" class="max-h-64 overflow-y-auto space-y-1"></div>
+                </div>
+                <div class="p-4 border-t border-slate-800 flex justify-end gap-2">
+                    <button onclick="closeAssignModal()" class="px-4 py-2 text-xs font-bold text-slate-400 hover:text-white rounded-xl hover:bg-slate-700 transition-colors">Cancel</button>
+                    <button onclick="saveAssignUsers()" class="px-5 py-2 bg-amber-600 hover:bg-amber-500 text-white text-xs font-bold rounded-xl transition-colors">Save</button>
+                </div>
             </div>
         </div>
     </div>
@@ -501,33 +523,117 @@
 
     // ─── Clients ─────────────────────────────────────────────────────────────────────
     let allClients = [];
+    let clientUsersMap = {}; // { clientId: [{id, email, name}, ...] }
+    let assignClientId = null;
+    let assignSelectedUsers = new Set();
 
     async function loadClients() {
         const res = await fetch('/api/clients');
         allClients = await res.json();
+        // Load assigned users for each client
+        await Promise.all(allClients.map(async c => {
+            const r = await fetch(`/api/client_users/${c.id}`);
+            clientUsersMap[c.id] = await r.json();
+        }));
         renderClientsTable();
     }
 
     function renderClientsTable() {
         const tbody = document.getElementById('clients-table-body');
         if (!allClients.length) {
-            tbody.innerHTML = '<tr><td colspan="3" class="text-center text-slate-500 text-xs py-10">No clients yet. Add one above.</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="5" class="text-center text-slate-500 text-xs py-10">No clients yet. Add one above.</td></tr>';
             return;
         }
-        tbody.innerHTML = allClients.map(c => `
-        <tr class="hover:bg-slate-700/20 transition-colors">
-            <td class="px-5 py-3 font-semibold text-white">${c.name}</td>
-            <td class="px-5 py-3 text-slate-400 text-xs">${c.notes || '—'}</td>
-            <td class="px-5 py-3">
-                ${c.zoho_org_id
-                ? `<span class="font-mono text-xs text-amber-400 bg-amber-500/10 border border-amber-500/20 px-2 py-0.5 rounded">${c.zoho_org_id}</span>`
-                : '<span class="text-slate-600 text-xs">—</span>'}
-            </td>
-            <td class="px-5 py-3 text-right">
-                <button onclick='editClient(${JSON.stringify(c).replace(/'/g, "&#39;")}'
-                    class="px-3 py-1 text-[10px] font-bold bg-slate-700 hover:bg-slate-600 text-slate-300 rounded-lg transition-colors">Edit</button>
-            </td>
-        </tr>`).join('');
+        tbody.innerHTML = allClients.map(c => {
+            const users = clientUsersMap[c.id] || [];
+            const userBadges = users.length
+                ? users.map(u => `<span class="inline-block bg-slate-700/50 text-slate-300 text-[10px] px-2 py-0.5 rounded-full mr-1 mb-1">${u.name || u.email.split('@')[0]}</span>`).join('')
+                : '<span class="text-slate-600 text-[10px] italic">No users assigned</span>';
+            return `
+            <tr class="hover:bg-slate-700/20 transition-colors">
+                <td class="px-5 py-3 font-semibold text-white">${c.name}</td>
+                <td class="px-5 py-3">
+                    <div class="flex flex-wrap items-center gap-0.5">
+                        ${userBadges}
+                        <button onclick="openAssignModal(${c.id}, '${c.name.replace(/'/g, "\\'")}')"
+                            class="inline-block text-amber-400 hover:text-amber-300 text-[10px] font-bold px-1.5 py-0.5 rounded-full border border-amber-500/30 hover:border-amber-400/50 transition-colors ml-1"
+                            title="Assign users">+ Assign</button>
+                    </div>
+                </td>
+                <td class="px-5 py-3 text-slate-400 text-xs">${c.notes || '—'}</td>
+                <td class="px-5 py-3">
+                    ${c.zoho_org_id
+                    ? `<span class="font-mono text-xs text-amber-400 bg-amber-500/10 border border-amber-500/20 px-2 py-0.5 rounded">${c.zoho_org_id}</span>`
+                    : '<span class="text-slate-600 text-xs">—</span>'}
+                </td>
+                <td class="px-5 py-3 text-right">
+                    <button onclick='editClient(${JSON.stringify(c).replace(/'/g, "&#39;")}'
+                        class="px-3 py-1 text-[10px] font-bold bg-slate-700 hover:bg-slate-600 text-slate-300 rounded-lg transition-colors">Edit</button>
+                </td>
+            </tr>`;
+        }).join('');
+    }
+
+    // ─── Assign Users Modal ──────────────────────────────────────────────
+    function openAssignModal(clientId, clientName) {
+        assignClientId = clientId;
+        document.getElementById('assign-client-name').textContent = clientName;
+        const existing = clientUsersMap[clientId] || [];
+        assignSelectedUsers = new Set(existing.map(u => u.id));
+        document.getElementById('assign-user-search').value = '';
+        renderAssignUserList();
+        document.getElementById('assign-users-modal').classList.remove('hidden');
+    }
+
+    function closeAssignModal() {
+        document.getElementById('assign-users-modal').classList.add('hidden');
+        assignClientId = null;
+    }
+
+    function renderAssignUserList(filter = '') {
+        const container = document.getElementById('assign-user-list');
+        const filtered = allUsers.filter(u =>
+            !filter || u.name.toLowerCase().includes(filter.toLowerCase()) || u.email.toLowerCase().includes(filter.toLowerCase())
+        );
+        container.innerHTML = filtered.map(u => {
+            const checked = assignSelectedUsers.has(u.id) ? 'checked' : '';
+            return `<label class="flex items-center gap-3 px-3 py-2 rounded-xl hover:bg-slate-800/50 cursor-pointer transition-colors">
+                <input type="checkbox" value="${u.id}" ${checked} onchange="toggleAssignUser(this)"
+                    class="rounded border-slate-600 bg-slate-900 text-amber-500 focus:ring-amber-500 focus:ring-offset-0 w-3.5 h-3.5">
+                <div>
+                    <div class="text-xs font-semibold text-slate-300">${u.name}</div>
+                    <div class="text-[10px] text-slate-500">${u.email}</div>
+                </div>
+            </label>`;
+        }).join('');
+    }
+
+    function filterAssignUsers() {
+        renderAssignUserList(document.getElementById('assign-user-search').value);
+    }
+
+    function toggleAssignUser(cb) {
+        const uid = parseInt(cb.value);
+        if (cb.checked) assignSelectedUsers.add(uid);
+        else assignSelectedUsers.delete(uid);
+    }
+
+    async function saveAssignUsers() {
+        const res = await fetch(`/api/client_users/${assignClientId}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ user_ids: [...assignSelectedUsers] })
+        });
+        if (res.ok) {
+            showToast('Users assigned successfully');
+            // Refresh the client users
+            const r = await fetch(`/api/client_users/${assignClientId}`);
+            clientUsersMap[assignClientId] = await r.json();
+            renderClientsTable();
+            closeAssignModal();
+        } else {
+            showToast('Error assigning users', 'error');
+        }
     }
 
     function editClient(c) {

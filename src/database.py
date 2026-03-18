@@ -183,6 +183,16 @@ def init_db():
         c.execute("CREATE INDEX IF NOT EXISTS idx_api_tokens_email ON api_tokens(LOWER(user_email))")
         
         c.execute('''
+            CREATE TABLE IF NOT EXISTS client_users (
+                id BIGSERIAL PRIMARY KEY,
+                client_id INTEGER REFERENCES clients(id) ON DELETE CASCADE,
+                user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+                created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+                UNIQUE(client_id, user_id)
+            )
+        ''')
+
+        c.execute('''
             CREATE TABLE IF NOT EXISTS org_settings (
                 key TEXT PRIMARY KEY,
                 value TEXT
@@ -844,6 +854,56 @@ def update_client(client_id, name, notes, zoho_org_id=None):
     except Exception as e:
         conn.rollback()
         return False, str(e)
+    finally:
+        release_db_connection(conn)
+
+def get_client_users(client_id):
+    """Get all users assigned to a client."""
+    conn = get_db_connection()
+    try:
+        c = conn.cursor(cursor_factory=RealDictCursor)
+        c.execute('''
+            SELECT u.id, u.email, u.name
+            FROM client_users cu
+            JOIN users u ON cu.user_id = u.id
+            WHERE cu.client_id = %s
+            ORDER BY u.name
+        ''', (client_id,))
+        return [dict(r) for r in c.fetchall()]
+    finally:
+        release_db_connection(conn)
+
+def set_client_users(client_id, user_ids):
+    """Replace all user assignments for a client."""
+    conn = get_db_connection()
+    try:
+        c = conn.cursor()
+        c.execute("DELETE FROM client_users WHERE client_id = %s", (client_id,))
+        for uid in user_ids:
+            c.execute("INSERT INTO client_users (client_id, user_id) VALUES (%s, %s) ON CONFLICT DO NOTHING",
+                      (client_id, uid))
+        conn.commit()
+        return True
+    except Exception as e:
+        conn.rollback()
+        return False
+    finally:
+        release_db_connection(conn)
+
+def get_clients_for_user(user_email):
+    """Get clients assigned to a specific user."""
+    conn = get_db_connection()
+    try:
+        c = conn.cursor(cursor_factory=RealDictCursor)
+        c.execute('''
+            SELECT c.*
+            FROM clients c
+            JOIN client_users cu ON cu.client_id = c.id
+            JOIN users u ON cu.user_id = u.id
+            WHERE LOWER(u.email) = LOWER(%s)
+            ORDER BY c.name
+        ''', (user_email,))
+        return [dict(r) for r in c.fetchall()]
     finally:
         release_db_connection(conn)
 

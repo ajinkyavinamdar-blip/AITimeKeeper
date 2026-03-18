@@ -20,11 +20,26 @@
             <p class="text-slate-500 text-xs mt-1">Client · Category · Member Breakdown</p>
         </div>
         <div class="flex flex-wrap items-center gap-2">
-            <!-- Member Filter -->
-            <select id="filter-member" onchange="applyFilters()"
-                class="bg-slate-800 border border-slate-700 text-slate-300 text-[10px] font-semibold rounded-xl px-3 py-2 outline-none focus:border-violet-500 hover:border-slate-600 transition-colors cursor-pointer">
-                <option value="">All Members</option>
-            </select>
+            <!-- Member Filter (multi-select) -->
+            <div class="relative" id="member-filter-wrap">
+                <button id="member-filter-btn" onclick="toggleMemberDropdown()"
+                    class="bg-slate-800 border border-slate-700 text-slate-300 text-[10px] font-semibold rounded-xl px-3 py-2 outline-none hover:border-slate-600 transition-colors cursor-pointer flex items-center gap-1.5 min-w-[120px]">
+                    <span id="member-filter-label">All Members</span>
+                    <svg class="w-3 h-3 ml-auto shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+                </button>
+                <div id="member-dropdown" class="hidden absolute z-50 mt-1 w-64 bg-slate-800 border border-slate-700 rounded-xl shadow-2xl overflow-hidden">
+                    <div class="p-2 border-b border-slate-700">
+                        <input id="member-search" type="text" placeholder="Search members..."
+                            class="w-full bg-slate-900/50 border border-slate-700 text-white text-[10px] rounded-lg px-3 py-1.5 outline-none focus:border-violet-500"
+                            oninput="filterMemberOptions()">
+                    </div>
+                    <div id="member-options" class="max-h-48 overflow-y-auto p-1"></div>
+                    <div class="p-2 border-t border-slate-700 flex gap-2">
+                        <button onclick="clearMemberFilter()" class="flex-1 text-[9px] font-bold text-slate-400 hover:text-white py-1 rounded-lg hover:bg-slate-700 transition-colors">Clear All</button>
+                        <button onclick="toggleMemberDropdown()" class="flex-1 text-[9px] font-bold text-violet-400 hover:text-white py-1 rounded-lg hover:bg-violet-600 transition-colors">Apply</button>
+                    </div>
+                </div>
+            </div>
             <!-- Client Filter -->
             <select id="filter-client" onchange="applyFilters()"
                 class="bg-slate-800 border border-slate-700 text-slate-300 text-[10px] font-semibold rounded-xl px-3 py-2 outline-none focus:border-violet-500 hover:border-slate-600 transition-colors cursor-pointer">
@@ -376,20 +391,87 @@
     // Keep old name as alias so nothing else breaks
     function fetchTeamData() { fetchAll(); }
 
+    // ─── Multi-select member filter ──────────────────────────────────────
+    let selectedMembers = new Set();
+    let allMemberOptions = [];
+
+    function toggleMemberDropdown() {
+        const dd = document.getElementById('member-dropdown');
+        dd.classList.toggle('hidden');
+        if (!dd.classList.contains('hidden')) {
+            document.getElementById('member-search').focus();
+        } else {
+            applyFilters();
+        }
+    }
+
+    // Close dropdown when clicking outside
+    document.addEventListener('click', function(e) {
+        const wrap = document.getElementById('member-filter-wrap');
+        if (wrap && !wrap.contains(e.target)) {
+            const dd = document.getElementById('member-dropdown');
+            if (!dd.classList.contains('hidden')) {
+                dd.classList.add('hidden');
+                applyFilters();
+            }
+        }
+    });
+
+    function renderMemberOptions(filter = '') {
+        const container = document.getElementById('member-options');
+        const filtered = allMemberOptions.filter(m =>
+            !filter || m.name.toLowerCase().includes(filter.toLowerCase()) || m.email.toLowerCase().includes(filter.toLowerCase())
+        );
+        container.innerHTML = filtered.map(m => {
+            const checked = selectedMembers.has(m.email) ? 'checked' : '';
+            const name = m.name || m.email.split('@')[0];
+            return `<label class="flex items-center gap-2 px-2 py-1.5 rounded-lg hover:bg-slate-700/50 cursor-pointer text-[10px]">
+                <input type="checkbox" value="${m.email}" ${checked} onchange="toggleMember(this)"
+                    class="rounded border-slate-600 bg-slate-900 text-violet-500 focus:ring-violet-500 focus:ring-offset-0 w-3 h-3">
+                <span class="text-slate-300 truncate">${name}</span>
+                <span class="text-slate-600 truncate ml-auto text-[9px]">${m.email.split('@')[0]}</span>
+            </label>`;
+        }).join('');
+    }
+
+    function filterMemberOptions() {
+        renderMemberOptions(document.getElementById('member-search').value);
+    }
+
+    function toggleMember(cb) {
+        if (cb.checked) selectedMembers.add(cb.value);
+        else selectedMembers.delete(cb.value);
+        updateMemberLabel();
+    }
+
+    function clearMemberFilter() {
+        selectedMembers.clear();
+        renderMemberOptions(document.getElementById('member-search').value);
+        updateMemberLabel();
+        applyFilters();
+    }
+
+    function updateMemberLabel() {
+        const label = document.getElementById('member-filter-label');
+        if (selectedMembers.size === 0) label.textContent = 'All Members';
+        else if (selectedMembers.size === 1) {
+            const email = [...selectedMembers][0];
+            const m = allMemberOptions.find(x => x.email === email);
+            label.textContent = m ? (m.name || email.split('@')[0]) : email.split('@')[0];
+        } else label.textContent = `${selectedMembers.size} Members`;
+    }
+
     // ─── Populate filter dropdowns ─────────────────────────────────────────
     function populateFilters() {
-        const memberSel = document.getElementById('filter-member');
         const clientSel = document.getElementById('filter-client');
-        const prevMember = memberSel.value;
         const prevClient = clientSel.value;
 
-        // Members
-        memberSel.innerHTML = '<option value="">All Members</option>';
-        (teamData.members || []).forEach(m => {
-            const name = m.name || m.email.split('@')[0];
-            memberSel.innerHTML += `<option value="${m.email}">${name}</option>`;
-        });
-        if (prevMember) memberSel.value = prevMember;
+        // Members — multi-select
+        allMemberOptions = (teamData.members || []).map(m => ({
+            email: m.email, name: m.name || m.email.split('@')[0]
+        }));
+        renderMemberOptions();
+        updateMemberLabel();
 
         // Clients
         clientSel.innerHTML = '<option value="">All Clients</option>';
@@ -401,7 +483,7 @@
     // ─── Apply filters and re-render ────────────────────────────────────────
     function applyFilters() {
         if (!teamData) return;
-        const memberFilter = document.getElementById('filter-member').value;
+        const memberEmails = selectedMembers.size > 0 ? selectedMembers : null;
         const clientFilter = document.getElementById('filter-client').value;
 
         // Build a filtered view of teamData
@@ -409,8 +491,8 @@
         let byClient = teamData.by_client;
         let byCategory = teamData.by_category;
 
-        if (memberFilter) {
-            members = members.filter(m => m.email.toLowerCase() === memberFilter.toLowerCase());
+        if (memberEmails) {
+            members = members.filter(m => memberEmails.has(m.email.toLowerCase()) || memberEmails.has(m.email));
         }
         if (clientFilter) {
             byClient = byClient.filter(c => c.client === clientFilter);
@@ -419,15 +501,21 @@
                 ...c,
                 member_breakdown: Object.fromEntries(
                     Object.entries(c.member_breakdown || {}).filter(([e]) =>
-                        !memberFilter || e.toLowerCase() === memberFilter.toLowerCase()
+                        !memberEmails || memberEmails.has(e.toLowerCase()) || memberEmails.has(e)
                     )
                 )
             }));
         }
-        if (memberFilter) {
-            // Filter by_client to only show entries where that member contributed
-            byClient = byClient.filter(c => c.member_breakdown && c.member_breakdown[memberFilter]);
-            byCategory = byCategory.filter(c => c.member_breakdown && c.member_breakdown[memberFilter]);
+        if (memberEmails) {
+            // Filter by_client to only show entries where selected members contributed
+            byClient = byClient.filter(c => {
+                if (!c.member_breakdown) return false;
+                return Object.keys(c.member_breakdown).some(e => memberEmails.has(e.toLowerCase()) || memberEmails.has(e));
+            });
+            byCategory = byCategory.filter(c => {
+                if (!c.member_breakdown) return false;
+                return Object.keys(c.member_breakdown).some(e => memberEmails.has(e.toLowerCase()) || memberEmails.has(e));
+            });
         }
 
         // Recalculate totals from filtered members

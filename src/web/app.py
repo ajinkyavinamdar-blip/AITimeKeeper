@@ -5,6 +5,7 @@ from ..database import (
     init_db,
     get_todays_activities, get_summary_stats, get_weekly_summary_stats, get_application_stats, get_application_activities,
     get_clients, add_client, update_client, get_mappings, add_mapping, get_unassigned_summary,
+    get_client_users, set_client_users, get_clients_for_user,
     get_categories, get_category_mappings, add_category_mapping,
     get_work_blocks, get_overtime_stats,
     # User management
@@ -593,8 +594,15 @@ def api_clients():
         else:
             return jsonify({'status': 'error', 'message': msg}), 400
             
-    # GET — available to all logged-in users (needed for dropdowns)
-    clients = get_clients()
+    # GET — admins see all clients; regular users see only their assigned clients
+    if g.user and g.user.get('role') == 'admin':
+        clients = get_clients()
+    else:
+        user_email = g.user['email'] if g.user else None
+        clients = get_clients_for_user(user_email) if user_email else []
+        if not clients:
+            # Fallback: if no clients assigned yet, show all (graceful migration)
+            clients = get_clients()
     return jsonify([dict(c) for c in clients])
 
 @app.route('/api/mappings', methods=['GET', 'POST'])
@@ -613,6 +621,16 @@ def api_mappings():
 
     mappings = get_mappings()
     return jsonify([dict(m) for m in mappings])
+
+@app.route('/api/client_users/<int:client_id>', methods=['GET', 'PUT'])
+def api_client_users(client_id):
+    if not g.user or g.user.get('role') != 'admin':
+        return jsonify({'error': 'Admin access required'}), 403
+    if request.method == 'PUT':
+        user_ids = request.json.get('user_ids', [])
+        set_client_users(client_id, user_ids)
+        return jsonify({'status': 'success'})
+    return jsonify(get_client_users(client_id))
 
 @app.route('/api/unassigned')
 def api_unassigned():
@@ -979,25 +997,29 @@ def _get_date_range():
 def api_team_summary():
     if g.user is None or not g.user.get('can_see_team'):
         return jsonify({'error': 'Unauthorized'}), 403
-    
+
     start, end = _get_date_range()
     email = g.user['email']
-    
-    # Collect all transitive reports + include the manager themselves
-    reports = get_all_reports(email)
-    member_name_map = {r['email']: r['name'] for r in reports}
-    
-    # Add manager's own entry first
-    manager_name = g.user.get('name') or email.split('@')[0].title()
-    member_name_map[email] = manager_name
-    member_emails = [email] + [r['email'] for r in reports if r['email'].lower() != email.lower()]
+
+    if g.user.get('role') == 'admin':
+        # Admin sees ALL users
+        all_users = get_all_users()
+        member_name_map = {u['email']: u['name'] for u in all_users}
+        member_emails = [u['email'] for u in all_users]
+    else:
+        # Manager sees transitive reports + self
+        reports = get_all_reports(email)
+        member_name_map = {r['email']: r['name'] for r in reports}
+        manager_name = g.user.get('name') or email.split('@')[0].title()
+        member_name_map[email] = manager_name
+        member_emails = [email] + [r['email'] for r in reports if r['email'].lower() != email.lower()]
 
     data = get_team_summary(member_emails, start, end)
-    
+
     # Enrich members with names
     for m in data['members']:
         m['name'] = member_name_map.get(m['email'], m['email'].split('@')[0].title())
-    
+
     data['date_range'] = {'start': start, 'end': end}
     return jsonify(data)
 
