@@ -1,5 +1,5 @@
 """
-uploader.py — POSTs activity batches to /api/ingest.
+uploader.py — TimePulse: POSTs activity batches to /api/ingest.
 Stores failed batches in ~/.aitimekeeper/offline_queue.json for retry.
 
 Resilience features:

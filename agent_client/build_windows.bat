@@ -1,15 +1,15 @@
 @echo off
-REM build_windows.bat — Build AITimeKeeper Windows agent (.exe)
+REM build_windows.bat — Build TimePulse Windows agent (.exe)
 REM Run this on a Windows machine. Requires Python 3.9+.
 REM Usage: build_windows.bat [version]
 
 setlocal
 set VERSION=%1
 if "%VERSION%"=="" set VERSION=1.0.0
-set APP_NAME=AITimeKeeper
+set APP_NAME=TimePulse
 set EXE_NAME=%APP_NAME%-Windows-%VERSION%.exe
 
-echo === AI TimeKeeper Windows Build ===
+echo === TimePulse Windows Build ===
 echo Version: %VERSION%
 echo.
 

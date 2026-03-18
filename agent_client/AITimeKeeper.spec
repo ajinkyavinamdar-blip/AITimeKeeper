@@ -1,5 +1,5 @@
 # -*- mode: python ; coding: utf-8 -*-
-# PyInstaller spec file for AITimeKeeper Desktop Agent
+# PyInstaller spec file for TimePulse Desktop Agent
 import sys, os
 
 a = Analysis(
@@ -47,7 +47,7 @@ exe = EXE(
     a.binaries,
     a.datas,
     [],
-    name='AITimeKeeper',
+    name='TimePulse',
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,
@@ -67,16 +67,16 @@ exe = EXE(
 if sys.platform == 'darwin':
     app = BUNDLE(
         exe,
-        name='AITimeKeeper.app',
+        name='TimePulse.app',
         icon=None,
-        bundle_identifier='com.aitimekeeper.agent',
+        bundle_identifier='com.timepulse.agent',
         info_plist={
             'NSPrincipalClass': 'NSApplication',
             'LSUIElement': True,           # hide from Dock but still launchable from Finder
             'CFBundleShortVersionString': '1.4.8',
             'NSSupportsAutomaticTermination': False,
             'NSSupportsSuddenTermination': False,
-            'CFBundleName': 'AITimeKeeper',
+            'CFBundleName': 'TimePulse',
             'NSAppleEventsUsageDescription': 'Required to detect active app and window for time tracking.',
             'NSMicrophoneUsageDescription': 'Not used.',
         },

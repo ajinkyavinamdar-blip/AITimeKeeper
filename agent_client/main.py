@@ -1,5 +1,5 @@
 """
-main.py — AI TimeKeeper Desktop Agent (lightweight, cloud-connected)
+main.py — TimePulse Desktop Agent (lightweight, cloud-connected)
 
 Usage:
   python3 main.py                  # normal run
@@ -74,7 +74,7 @@ def _disable_app_nap():
         # don't suspend me or let the system idle-sleep"
         activity = info.beginActivityWithOptions_reason_(
             0x00FFFFFF,  # NSActivityUserInitiated (prevents App Nap + idle sleep)
-            "AITimeKeeper must continuously track user activity"
+            "TimePulse must continuously track user activity"
         )
         log.info("macOS App Nap disabled successfully")
         return activity  # must keep reference alive
@@ -89,7 +89,7 @@ def _disable_app_nap():
 # ── Single Instance Guard ────────────────────────────────────────────────────
 
 def _kill_old_instances():
-    """Kill any other AITimeKeeper processes to prevent duplicates."""
+    """Kill any other TimePulse/AITimeKeeper processes to prevent duplicates."""
     my_pid = os.getpid()
     my_ppid = os.getppid()
     killed = 0
@@ -101,7 +101,7 @@ def _kill_old_instances():
                 continue
             name = (proc.info['name'] or '').lower()
             cmdline = ' '.join(proc.info['cmdline'] or []).lower()
-            if 'aitimekeeper' in name or 'aitimekeeper' in cmdline:
+            if 'timepulse' in name or 'timepulse' in cmdline or 'aitimekeeper' in name or 'aitimekeeper' in cmdline:
                 log.info(f"Killing old instance PID {pid}")
                 proc.kill()
                 killed += 1
@@ -516,24 +516,47 @@ class AgentLoop:
 # ── System Tray ───────────────────────────────────────────────────────────────
 
 def _make_icon_image():
-    """Draw a lightning-bolt icon in app-brand indigo using PIL."""
+    """Draw a waveform/pulse icon with cyan→blue→purple gradient for TimePulse."""
     from PIL import Image, ImageDraw
     SIZE = 64
     img = Image.new('RGBA', (SIZE, SIZE), (0, 0, 0, 0))
     d = ImageDraw.Draw(img)
-    # Indigo background circle
-    d.ellipse([2, 2, SIZE - 2, SIZE - 2], fill=(79, 70, 229, 255))
-    # White lightning bolt  (simplified polygon matching the app SVG)
-    bolt = [
-        (38, 8),   # top-right tip
-        (24, 30),  # mid-left
-        (34, 30),  # mid-right
-        (26, 56),  # bottom tip
-        (42, 34),  # lower-right
-        (32, 34),  # lower-left
-        (38, 8),   # close
+
+    # Dark rounded-square background
+    d.rounded_rectangle([0, 0, SIZE - 1, SIZE - 1], radius=14, fill=(15, 23, 42, 255))
+
+    # Define the waveform path as line segments
+    # Normalized from SVG: M4,16 h5 l3,-8 l4,16 l3,-12 l3,6 h6
+    # Scale to 64x64 (with padding)
+    pad = 8
+    w = SIZE - 2 * pad
+    h = SIZE
+    cx, cy = SIZE // 2, SIZE // 2
+
+    points = [
+        (pad, cy),                          # start flat
+        (pad + w * 5 / 28, cy),             # end of first flat
+        (pad + w * 8 / 28, cy - h * 0.25),  # peak up
+        (pad + w * 12 / 28, cy + h * 0.35), # deep trough
+        (pad + w * 15 / 28, cy - h * 0.2),  # second peak
+        (pad + w * 18 / 28, cy + h * 0.05), # small dip
+        (pad + w * 22 / 28, cy),            # return to center
+        (SIZE - pad, cy),                   # end flat
     ]
-    d.polygon(bolt, fill=(255, 255, 255, 255))
+
+    # Draw gradient segments (cyan → blue → purple)
+    colors = [
+        (6, 182, 212),   # cyan
+        (6, 182, 212),   # cyan
+        (20, 140, 230),  # cyan-blue
+        (59, 130, 246),  # blue
+        (100, 100, 230), # blue-purple
+        (139, 92, 246),  # purple
+        (139, 92, 246),  # purple
+    ]
+    for i in range(len(points) - 1):
+        d.line([points[i], points[i + 1]], fill=colors[i], width=3)
+
     return img
 
 
@@ -614,9 +637,9 @@ def _build_tray_icon(loop):
             pystray.MenuItem('Change Email...', on_change_email),
             pystray.MenuItem(f'Version {version}',  noop, enabled=False),
             pystray.Menu.SEPARATOR,
-            pystray.MenuItem('Quit AITimeKeeper', on_quit),
+            pystray.MenuItem('Quit TimePulse', on_quit),
         )
-        icon = pystray.Icon('AITimeKeeper', img, 'AI TimeKeeper', menu)
+        icon = pystray.Icon('TimePulse', img, 'TimePulse', menu)
         return icon
     except Exception as e:
         log.error(f"Could not create tray icon: {e}")
@@ -697,7 +720,7 @@ def _run_status_window(loop, cfg):
 
         script = (
             f'display dialog "{msg}" '
-            f'with title "AI TimeKeeper" '
+            f'with title "TimePulse" '
             f'buttons {{"Quit", "{action}", "Hide"}} '
             f'default button "Hide" '
             f'with icon note '
@@ -745,14 +768,14 @@ def _run_status_window(loop, cfg):
 
 def main():
     log.info("=" * 60)
-    log.info(f"AITimeKeeper agent starting (v{AGENT_VERSION})")
+    log.info(f"TimePulse agent starting (v{AGENT_VERSION})")
     log.info(f"Platform: {platform.system()} {platform.release()}")
     log.info(f"Python: {sys.version}")
     log.info(f"PID: {os.getpid()}")
     log.info("=" * 60)
 
     # Show launch notification so user knows the app is starting
-    _show_notification("AI TimeKeeper", f"Starting v{AGENT_VERSION}...")
+    _show_notification("TimePulse", f"Starting v{AGENT_VERSION}...")
 
     _kill_old_instances()
 
@@ -771,7 +794,7 @@ def main():
             cfg = config.first_run_setup()
         except (ValueError, Exception) as e:
             log.error(f"First-run setup failed: {e}")
-            _show_error_dialog("AI TimeKeeper — Setup Failed",
+            _show_error_dialog("TimePulse — Setup Failed",
                                f"Could not complete setup: {e}\\n\\nRestart the app to try again.")
             sys.exit(1)
 
@@ -781,8 +804,8 @@ def main():
 
     tray_icon = _build_tray_icon(loop)
     if tray_icon:
-        _show_notification("AI TimeKeeper",
-                           f"Tracking active for {cfg.get('user_email', 'unknown')}. Look for the \\u26a1 icon in your menu bar.")
+        _show_notification("TimePulse",
+                           f"Tracking active for {cfg.get('user_email', 'unknown')}. Look for the icon in your menu bar.")
         # On macOS pystray MUST run on the main thread.
         # Move the tracking loop to a background thread instead.
         tracking_thread = threading.Thread(target=loop.start, daemon=True)
@@ -796,7 +819,7 @@ def main():
     else:
         # No tray icon — show a status window with controls instead
         log.warning("Could not create tray icon — using status window")
-        _show_notification("AI TimeKeeper",
+        _show_notification("TimePulse",
                            f"Tracking active for {cfg.get('user_email', 'unknown')}.")
         tracking_thread = threading.Thread(target=loop.start, daemon=True)
         tracking_thread.start()
@@ -814,7 +837,7 @@ if __name__ == "__main__":
     except Exception as e:
         log.critical(f"FATAL: {e}\n{traceback.format_exc()}")
         _show_error_dialog(
-            "AI TimeKeeper — Crash",
+            "TimePulse — Crash",
             f"The app encountered an error and needs to close:\\n\\n{e}\\n\\nCheck ~/.aitimekeeper/agent.log for details."
         )
         sys.exit(1)

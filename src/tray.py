@@ -64,11 +64,11 @@ class SystemTrayApp:
         if self.agent.paused:
             self.agent.resume()
             self.icon.icon = self.create_image("green")
-            self.send_notification("AI TimeKeeper", "Tracking Resumed")
+            self.send_notification("TimePulse", "Tracking Resumed")
         else:
             self.agent.pause()
             self.icon.icon = self.create_image("gray")
-            self.send_notification("AI TimeKeeper", "Tracking Paused")
+            self.send_notification("TimePulse", "Tracking Paused")
 
     def on_exit(self, icon, item):
         self.agent.stop()
@@ -98,11 +98,11 @@ class SystemTrayApp:
         )
 
         self.icon = pystray.Icon(
-            "TimeKeeper",
+            "TimePulse",
             self.create_image("green"),
-            "AI TimeKeeper",
+            "TimePulse",
             menu
         )
         
-        self.send_notification("AI TimeKeeper", "Agent Started")
+        self.send_notification("TimePulse", "Agent Started")
         self.icon.run() 

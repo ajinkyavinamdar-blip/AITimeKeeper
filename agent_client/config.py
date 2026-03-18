@@ -102,20 +102,20 @@ def first_run_setup():
     log.info("First-run setup starting...")
 
     server_url = _gui_prompt(
-        "AI TimeKeeper Setup",
+        "TimePulse Setup",
         "Enter your server URL:",
         "https://aitimekeeper.onrender.com"
     ).rstrip("/")
     if not server_url:
-        _gui_alert("AI TimeKeeper", "Setup cancelled. The app will not track until configured.\\n\\nRestart the app to try again.")
+        _gui_alert("TimePulse", "Setup cancelled. The app will not track until configured.\\n\\nRestart the app to try again.")
         raise ValueError("Setup cancelled — no server URL.")
 
     user_email = _gui_prompt(
-        "AI TimeKeeper Setup",
+        "TimePulse Setup",
         "Enter your work email (must be registered by your admin):"
     )
     if not user_email:
-        _gui_alert("AI TimeKeeper", "Setup cancelled. The app will not track until configured.\\n\\nRestart the app to try again.")
+        _gui_alert("TimePulse", "Setup cancelled. The app will not track until configured.\\n\\nRestart the app to try again.")
         raise ValueError("Setup cancelled — no email.")
 
     log.info(f"Provisioning token for {user_email} from {server_url}...")
@@ -126,7 +126,7 @@ def first_run_setup():
             timeout=30,
         )
         if resp.status_code == 403:
-            _gui_alert("AI TimeKeeper — Error",
+            _gui_alert("TimePulse — Error",
                         f"Email '{user_email}' is not registered.\\n\\nAsk your admin to add you in Admin → Users first, then restart the app.")
             raise ValueError(f"Email not registered: {user_email}")
         resp.raise_for_status()
@@ -136,23 +136,23 @@ def first_run_setup():
             raise ValueError("Server returned no token.")
         log.info("Token received successfully")
     except requests.exceptions.ConnectionError:
-        _gui_alert("AI TimeKeeper — Error",
+        _gui_alert("TimePulse — Error",
                     f"Could not connect to {server_url}.\\n\\nCheck your internet connection and server URL, then restart the app.")
         raise ValueError(f"Cannot connect to {server_url}")
     except requests.exceptions.Timeout:
-        _gui_alert("AI TimeKeeper — Error",
+        _gui_alert("TimePulse — Error",
                     f"Server at {server_url} took too long to respond.\\n\\nThe server may be starting up. Wait a minute and restart the app.")
         raise ValueError(f"Timeout connecting to {server_url}")
     except ValueError:
         raise  # re-raise our own ValueErrors
     except Exception as e:
-        _gui_alert("AI TimeKeeper — Error",
+        _gui_alert("TimePulse — Error",
                     f"Could not fetch token: {e}\\n\\nRestart the app to try again.")
         raise ValueError(f"Provisioning failed: {e}")
 
     cfg = {"server_url": server_url, "user_email": user_email, "api_token": api_token}
     save(cfg)
-    _gui_alert("AI TimeKeeper — Ready!",
+    _gui_alert("TimePulse — Ready!",
                f"Setup complete for {user_email}.\\n\\nThe agent is now tracking in the background. Look for the ⚡ icon in your menu bar.")
     log.info(f"Config saved for {user_email}. Setup complete.")
     return cfg
@@ -167,7 +167,7 @@ def change_email():
     server_url = cfg.get('server_url', 'https://aitimekeeper.onrender.com')
 
     new_email = _gui_prompt(
-        "AI TimeKeeper — Change Email",
+        "TimePulse — Change Email",
         "Enter your new work email:",
         current_email
     )
@@ -182,7 +182,7 @@ def change_email():
             timeout=30,
         )
         if resp.status_code == 403:
-            _gui_alert("AI TimeKeeper — Error",
+            _gui_alert("TimePulse — Error",
                         f"Email '{new_email}' is not registered.\\n\\nAsk your admin to add you first.")
             return None
         resp.raise_for_status()
@@ -194,11 +194,11 @@ def change_email():
         cfg["user_email"] = new_email
         cfg["api_token"] = api_token
         save(cfg)
-        _gui_alert("AI TimeKeeper — Email Updated",
+        _gui_alert("TimePulse — Email Updated",
                    f"Email changed to {new_email}.\\n\\nLogs will now be tracked under the new email.")
         log.info(f"Email changed to {new_email}")
         return cfg
     except Exception as e:
-        _gui_alert("AI TimeKeeper — Error", f"Could not update email: {e}")
+        _gui_alert("TimePulse — Error", f"Could not update email: {e}")
         log.error(f"Email change failed: {e}")
         return None

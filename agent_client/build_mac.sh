@@ -1,14 +1,14 @@
 #!/bin/bash
-# build_mac.sh — Build AITimeKeeper macOS agent (.dmg installer)
+# build_mac.sh — Build TimePulse macOS agent (.dmg installer)
 # Usage: bash build_mac.sh
 set -e
 cd "$(dirname "$0")"
 
 VERSION="${1:-1.0.0}"
-APP_NAME="AITimeKeeper"
+APP_NAME="TimePulse"
 DMG_NAME="${APP_NAME}-Mac-${VERSION}.dmg"
 
-echo "=== AI TimeKeeper macOS Build ==="
+echo "=== TimePulse macOS Build ==="
 echo "Version: $VERSION"
 echo ""
 

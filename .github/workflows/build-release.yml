@@ -34,8 +34,8 @@ jobs:
         working-directory: agent_client/dist
         run: |
           VERSION=${GITHUB_REF_NAME}   # e.g. v1.4.6
-          zip -r "AITimeKeeper-Mac-${VERSION}.zip" AITimeKeeper.app
-          echo "MAC_ZIP=AITimeKeeper-Mac-${VERSION}.zip" >> $GITHUB_ENV
+          zip -r "TimePulse-Mac-${VERSION}.zip" TimePulse.app
+          echo "MAC_ZIP=TimePulse-Mac-${VERSION}.zip" >> $GITHUB_ENV
 
       - name: Upload Mac artifact
         uses: actions/upload-artifact@v4
@@ -68,14 +68,14 @@ jobs:
         shell: bash
         run: |
           VERSION=${GITHUB_REF_NAME}
-          mv AITimeKeeper.exe "AITimeKeeper-Windows-${VERSION}.exe" 2>/dev/null || true
+          mv TimePulse.exe "TimePulse-Windows-${VERSION}.exe" 2>/dev/null || true
           # If .exe exists at top level (onefile mode)
-          if [ -f "AITimeKeeper-Windows-${VERSION}.exe" ]; then
-            echo "WIN_EXE=AITimeKeeper-Windows-${VERSION}.exe" >> $GITHUB_ENV
+          if [ -f "TimePulse-Windows-${VERSION}.exe" ]; then
+            echo "WIN_EXE=TimePulse-Windows-${VERSION}.exe" >> $GITHUB_ENV
           else
             # onedir mode — zip the folder
-            powershell Compress-Archive -Path AITimeKeeper -DestinationPath "AITimeKeeper-Windows-${VERSION}.zip"
-            echo "WIN_EXE=AITimeKeeper-Windows-${VERSION}.zip" >> $GITHUB_ENV
+            powershell Compress-Archive -Path TimePulse -DestinationPath "TimePulse-Windows-${VERSION}.zip"
+            echo "WIN_EXE=TimePulse-Windows-${VERSION}.zip" >> $GITHUB_ENV
           fi
 
       - name: Upload Windows artifact
@@ -106,12 +106,12 @@ jobs:
             artifacts/mac-build/*
             artifacts/windows-build/*
           body: |
-            ## AI TimeKeeper Desktop Agent ${{ github.ref_name }}
+            ## TimePulse Desktop Agent ${{ github.ref_name }}
 
             ### Downloads
-            - **Mac** (macOS 13 Ventura and later): `AITimeKeeper-Mac-${{ github.ref_name }}.zip`
-            - **Windows** (Windows 10 and later): `AITimeKeeper-Windows-${{ github.ref_name }}.exe`
+            - **Mac** (macOS 13 Ventura and later): `TimePulse-Mac-${{ github.ref_name }}.zip`
+            - **Windows** (Windows 10 and later): `TimePulse-Windows-${{ github.ref_name }}.exe`
 
             ### Installation
-            **Mac**: Download the .zip, extract, drag `AITimeKeeper.app` to Applications. Right-click → Open on first launch.
+            **Mac**: Download the .zip, extract, drag `TimePulse.app` to Applications. Right-click → Open on first launch.
             **Windows**: Download the .exe and run it.

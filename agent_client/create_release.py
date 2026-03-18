@@ -9,7 +9,7 @@ import urllib.request, urllib.error
 REPO = "ajinkyavinamdar-blip/AITimeKeeper"
 TAG = "v1.4.4"
 RELEASE_NAME = "v1.4.4 — Fix Logs Stopping at Hour Mark"
-RELEASE_BODY = """## AI TimeKeeper Desktop Agent v1.4.4
+RELEASE_BODY = """## TimePulse Desktop Agent v1.4.4
 
 ### What's New
 
@@ -25,7 +25,7 @@ RELEASE_BODY = """## AI TimeKeeper Desktop Agent v1.4.4
 - Auto-disables poll if endpoint returns 404
 
 ### Download & Install
-- **Mac**: Download `AITimeKeeper-Mac-1.4.4.zip`, unzip, drag to Applications
+- **Mac**: Download `TimePulse-Mac-1.4.4.zip`, unzip, drag to Applications
   - First time: right-click → Open (to bypass Gatekeeper)
 
 ### First Run
@@ -37,14 +37,14 @@ It will automatically fetch your API token and start tracking.
 """
 
 DIST_DIR = os.path.join(os.path.dirname(__file__), "dist")
-MAC_ZIP = os.path.join(DIST_DIR, "AITimeKeeper-Mac-1.4.4.zip")
+MAC_ZIP = os.path.join(DIST_DIR, "TimePulse-Mac-1.4.4.zip")
 
 def gh_request(token, method, path, data=None, binary=None, content_type="application/json"):
     url = f"https://api.github.com{path}"
     headers = {
         "Authorization": f"Bearer {token}",
         "Accept": "application/vnd.github+json",
-        "User-Agent": "AITimeKeeper-Build",
+        "User-Agent": "TimePulse-Build",
         "Content-Type": content_type,
     }
     body = binary if binary else (json.dumps(data).encode() if data else None)
@@ -107,7 +107,7 @@ def main():
                 "Authorization": f"Bearer {token}",
                 "Content-Type": "application/zip",
                 "Accept": "application/vnd.github+json",
-                "User-Agent": "AITimeKeeper-Build",
+                "User-Agent": "TimePulse-Build",
             },
             method="POST"
         )

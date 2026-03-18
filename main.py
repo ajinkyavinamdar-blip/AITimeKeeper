@@ -5,7 +5,7 @@ import threading
 import time
 
 def main():
-    print("Initializing AI TimeKeeper...")
+    print("Initializing TimePulse...")
     
     # 1. Start Agent
     agent = TimeKeeperAgent()
