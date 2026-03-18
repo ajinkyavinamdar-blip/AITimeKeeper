@@ -622,24 +622,30 @@
             container.innerHTML = '<div class="text-center text-slate-500 text-xs py-10">No team members found.<br>Add team members in Admin → Users.</div>';
             return;
         }
+        // For day view, goal is 9h. For week view, multiply by 5 work days. For month, by ~22.
+        const goalMultiplier = viewMode === 'month' ? 22 : viewMode === 'week' ? 5 : 1;
+        const goal = GOAL * goalMultiplier;
+
         container.innerHTML = data.members.map((m, i) => {
-            const fillPct = Math.min(Math.round((m.total_time / GOAL) * 100), 100);
-            const billPct = m.total_time > 0 ? Math.round((m.billable_time / m.total_time) * fillPct) : 0;
-            const nonBillPct = fillPct - billPct;
+            const fillPct = Math.min(Math.round((m.total_time / goal) * 100), 100);
+            const billableInner = m.total_time > 0 ? Math.round((m.billable_time / m.total_time) * 100) : 0;
             const displayName = m.name || m.email.split('@')[0];
             const timeLabel = fmtTime(m.total_time);
-            const pctLabel = Math.round((m.total_time / GOAL) * 100);
+            const goalLabel = fmtTime(goal);
             return `
         <div class="flex items-center gap-3 text-xs p-2 cursor-pointer hover:bg-slate-700/50 active:bg-slate-700 rounded-xl transition-all group/item"
              onclick="openMemberDetail('${m.email.replace(/'/g, "\\'")}',' ${displayName.replace(/'/g, "\\'")}')"
-             title="${displayName} — ${pctLabel}% of 9h goal">
-            <div class="w-8 text-right text-slate-400 font-medium group-hover/item:text-violet-400 transition-colors shrink-0">${pctLabel}%</div>
+             title="${displayName} — ${timeLabel} of ${goalLabel} goal">
             <div class="w-28 font-bold text-slate-200 truncate shrink-0">${displayName}</div>
-            <div class="flex-1 bg-slate-700/50 rounded-full h-2.5 overflow-hidden">
-                <div class="h-full flex rounded-full overflow-hidden" style="width:${fillPct}%">
-                    <div class="bg-emerald-500 h-full transition-all" style="width:${m.total_time > 0 ? Math.round((m.billable_time / m.total_time) * 100) : 0}%"></div>
-                    <div class="bg-slate-500 h-full transition-all" style="width:${m.total_time > 0 ? Math.round((m.non_billable_time / m.total_time) * 100) : 0}%"></div>
+            <div class="flex-1 relative">
+                <div class="bg-slate-700/50 rounded-full h-3 overflow-hidden">
+                    <div class="h-full flex rounded-full overflow-hidden transition-all" style="width:${fillPct}%">
+                        ${billableInner > 0 ? `<div class="bg-emerald-500 h-full" style="width:${billableInner}%"></div>` : ''}
+                        <div class="bg-violet-500/70 h-full" style="width:${100 - billableInner}%"></div>
+                    </div>
                 </div>
+                <!-- 9h goal marker -->
+                <div class="absolute top-0 bottom-0 border-r border-dashed border-slate-500/50" style="left:100%"></div>
             </div>
             <div class="w-20 text-right text-slate-300 whitespace-nowrap font-semibold shrink-0">${timeLabel}</div>
         </div>`;
