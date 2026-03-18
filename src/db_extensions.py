@@ -733,17 +733,13 @@ def get_team_summary(member_emails, start_date, end_date):
         start_time = f"{start_date} 00:00:00"
         end_time = f"{end_date} 23:59:59"
 
-        primary_email = member_emails[0]
         placeholders = ','.join('%s' for _ in member_emails)
+        lower_placeholders = ','.join('LOWER(%s)' for _ in member_emails)
 
         c.execute(f'''
             SELECT
                 a.id, a.timestamp, a.app_name, a.window_title, a.url_or_filename,
-                CASE
-                    WHEN a.chrome_profile IS NULL OR TRIM(a.chrome_profile) = ''
-                    THEN %s
-                    ELSE a.chrome_profile
-                END as chrome_profile,
+                a.user_email,
                 a.client, a.duration,
                 a.category_id,
                 COALESCE(cat.name, 'Uncategorized') as category_name,
@@ -754,14 +750,14 @@ def get_team_summary(member_emails, start_date, end_date):
             FROM activities a
             LEFT JOIN categories cat ON a.category_id = cat.id
             WHERE a.timestamp >= %s AND a.timestamp <= %s
-              AND (
-                  (a.chrome_profile IS NULL OR TRIM(a.chrome_profile) = '')
-                  OR a.chrome_profile IN ({placeholders})
-              )
+              AND LOWER(a.user_email) IN ({lower_placeholders})
             ORDER BY a.timestamp DESC
-        ''', [primary_email, start_time, end_time] + member_emails)
+        ''', [start_time, end_time] + member_emails)
 
         rows = [dict(r) for r in c.fetchall()]
+
+        # Build lookup: lowercase email -> original email for consistent keying
+        email_lower_map = {e.lower(): e for e in member_emails}
 
         member_stats = {email: {
             'total_time': 0, 'billable_time': 0, 'non_billable_time': 0,
@@ -769,14 +765,15 @@ def get_team_summary(member_emails, start_date, end_date):
             'by_client': {}, 'by_category': {}
         } for email in member_emails}
 
-        client_totals = {}  
-        category_totals = {}  
+        client_totals = {}
+        category_totals = {}
         grand_focus = 0
         grand_meeting = 0
 
         for r in rows:
-            email = r['chrome_profile']
-            if email not in member_stats:
+            raw_email = (r['user_email'] or '').lower()
+            email = email_lower_map.get(raw_email)
+            if not email or email not in member_stats:
                 continue
             dur = r['duration'] or 0
             client = r['client'] or 'Unassigned'
@@ -821,6 +818,7 @@ def get_team_summary(member_emails, start_date, end_date):
         members_list = sorted([
             {'email': email, 'total_time': d['total_time'], 'billable_time': d['billable_time'],
              'non_billable_time': d['non_billable_time'],
+             'focus_time': d['focus_time'], 'meeting_time': d['meeting_time'],
              'by_client': sorted([{'client': k, 'time': v} for k, v in d['by_client'].items()], key=lambda x: -x['time']),
              'by_category': sorted([{'category': k, 'time': v} for k, v in d['by_category'].items()], key=lambda x: -x['time'])}
             for email, d in member_stats.items()
