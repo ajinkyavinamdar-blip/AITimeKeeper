@@ -18,7 +18,7 @@ import threading
 import logging
 import traceback
 
-AGENT_VERSION = '1.4.7'
+AGENT_VERSION = '1.4.8'
 
 import psutil
 
@@ -655,6 +655,92 @@ def _show_error_dialog(title, message):
     log.error(f"{title}: {message}")
 
 
+def _run_status_window(loop, cfg):
+    """Show a recurring AppleScript dialog as a simple control panel.
+    This is the fallback when pystray is unavailable."""
+    if platform.system() != "Darwin":
+        # On non-Mac, just block the main thread
+        try:
+            while loop.running:
+                time.sleep(1)
+        except KeyboardInterrupt:
+            pass
+        return
+
+    import subprocess
+    user_email = cfg.get('user_email', 'Unknown')
+
+    while loop.running:
+        # Build status text
+        status = "Paused" if loop.paused else "Tracking"
+        uploaded = loop._upload_count
+        tracked = loop._track_count
+        failures = loop._consecutive_upload_failures
+
+        if loop._last_successful_upload:
+            ago = int(time.time() - loop._last_successful_upload)
+            upload_info = f"{ago}s ago" if ago < 60 else f"{ago // 60}m ago"
+        else:
+            upload_info = "waiting..."
+
+        msg = (
+            f"Status: {status}\\n"
+            f"User: {user_email}\\n"
+            f"Version: {AGENT_VERSION}\\n\\n"
+            f"Tracked: {tracked} entries\\n"
+            f"Uploaded: {uploaded} entries\\n"
+            f"Last upload: {upload_info}\\n"
+            f"Failures: {failures}"
+        )
+
+        action = "Pause Tracking" if not loop.paused else "Resume Tracking"
+
+        script = (
+            f'display dialog "{msg}" '
+            f'with title "AI TimeKeeper" '
+            f'buttons {{"Quit", "{action}", "Hide"}} '
+            f'default button "Hide" '
+            f'with icon note '
+            f'giving up after 30'
+        )
+        try:
+            result = subprocess.run(
+                ['osascript', '-e', script],
+                capture_output=True, text=True, timeout=35
+            )
+            output = result.stdout.strip()
+
+            if "Quit" in output:
+                log.info("User clicked Quit in status window")
+                loop.flush_and_stop()
+                return
+            elif action in output:
+                if loop.paused:
+                    loop.resume()
+                    log.info("Resumed via status window")
+                else:
+                    loop.pause()
+                    log.info("Paused via status window")
+            elif "Hide" in output or "gave up" in output:
+                # User clicked Hide or dialog timed out — wait before showing again
+                # Wait 60s, but check every second so we can exit promptly
+                for _ in range(60):
+                    if not loop.running:
+                        return
+                    time.sleep(1)
+            elif result.returncode != 0:
+                # Dialog was cancelled (e.g., Cmd+Q) — wait and retry
+                for _ in range(60):
+                    if not loop.running:
+                        return
+                    time.sleep(1)
+        except subprocess.TimeoutExpired:
+            continue
+        except Exception as e:
+            log.error(f"Status window error: {e}")
+            time.sleep(10)
+
+
 # ── Entry Point ───────────────────────────────────────────────────────────────
 
 def main():
@@ -708,12 +794,17 @@ def main():
         finally:
             loop.flush_and_stop()
     else:
-        # No tray available — run tracking on main thread directly
-        log.warning("Could not create tray icon — running headless")
+        # No tray icon — show a status window with controls instead
+        log.warning("Could not create tray icon — using status window")
+        _show_notification("AI TimeKeeper",
+                           f"Tracking active for {cfg.get('user_email', 'unknown')}.")
+        tracking_thread = threading.Thread(target=loop.start, daemon=True)
+        tracking_thread.start()
         try:
-            loop.start()
+            _run_status_window(loop, cfg)
         except KeyboardInterrupt:
-            log.info("Stopping...")
+            pass
+        finally:
             loop.flush_and_stop()
 
 

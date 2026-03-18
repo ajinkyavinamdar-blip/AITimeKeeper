@@ -23,7 +23,7 @@ jobs:
       - name: Install dependencies
         working-directory: agent_client
         run: |
-          pip install pyinstaller pynput requests pyobjc-framework-Cocoa psutil
+          pip install pyinstaller pynput requests pyobjc-framework-Cocoa psutil pystray Pillow
 
       - name: Build .app bundle
         working-directory: agent_client
