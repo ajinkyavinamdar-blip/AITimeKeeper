@@ -617,27 +617,28 @@
     function renderMembers(data) {
         if (!data) data = teamData;
         const container = document.getElementById('members-list');
-        const total = data.totals.total_time || 1;
+        const GOAL = 9 * 3600; // 9h work goal in seconds
         if (!data.members || !data.members.length) {
             container.innerHTML = '<div class="text-center text-slate-500 text-xs py-10">No team members found.<br>Add team members in Admin → Users.</div>';
             return;
         }
         container.innerHTML = data.members.map((m, i) => {
-            const pct = total > 0 ? Math.round((m.total_time / total) * 100) : 0;
-            const billPct = m.total_time > 0 ? Math.round((m.billable_time / m.total_time) * 100) : 0;
-            const nonBillPct = 100 - billPct;
+            const fillPct = Math.min(Math.round((m.total_time / GOAL) * 100), 100);
+            const billPct = m.total_time > 0 ? Math.round((m.billable_time / m.total_time) * fillPct) : 0;
+            const nonBillPct = fillPct - billPct;
             const displayName = m.name || m.email.split('@')[0];
             const timeLabel = fmtTime(m.total_time);
+            const pctLabel = Math.round((m.total_time / GOAL) * 100);
             return `
         <div class="flex items-center gap-3 text-xs p-2 cursor-pointer hover:bg-slate-700/50 active:bg-slate-700 rounded-xl transition-all group/item"
              onclick="openMemberDetail('${m.email.replace(/'/g, "\\'")}',' ${displayName.replace(/'/g, "\\'")}')"
-             title="${displayName}">
-            <div class="w-8 text-right text-slate-400 font-medium group-hover/item:text-violet-400 transition-colors shrink-0">${pct}%</div>
+             title="${displayName} — ${pctLabel}% of 9h goal">
+            <div class="w-8 text-right text-slate-400 font-medium group-hover/item:text-violet-400 transition-colors shrink-0">${pctLabel}%</div>
             <div class="w-28 font-bold text-slate-200 truncate shrink-0">${displayName}</div>
-            <div class="flex-1 bg-slate-700/50 rounded-full h-1.5 overflow-hidden">
-                <div class="h-full flex rounded-full overflow-hidden">
-                    <div class="bg-emerald-500 h-full" style="width:${billPct}%"></div>
-                    <div class="bg-slate-600 h-full" style="width:${nonBillPct}%"></div>
+            <div class="flex-1 bg-slate-700/50 rounded-full h-2.5 overflow-hidden">
+                <div class="h-full flex rounded-full overflow-hidden" style="width:${fillPct}%">
+                    <div class="bg-emerald-500 h-full transition-all" style="width:${m.total_time > 0 ? Math.round((m.billable_time / m.total_time) * 100) : 0}%"></div>
+                    <div class="bg-slate-500 h-full transition-all" style="width:${m.total_time > 0 ? Math.round((m.non_billable_time / m.total_time) * 100) : 0}%"></div>
                 </div>
             </div>
             <div class="w-20 text-right text-slate-300 whitespace-nowrap font-semibold shrink-0">${timeLabel}</div>
