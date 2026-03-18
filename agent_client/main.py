@@ -623,6 +623,38 @@ def _build_tray_icon(loop):
         return None
 
 
+# ── Startup UI helpers ────────────────────────────────────────────────────────
+
+def _show_notification(title, message):
+    """Show a macOS notification (non-blocking)."""
+    if platform.system() != "Darwin":
+        return
+    try:
+        import subprocess
+        script = f'display notification "{message}" with title "{title}"'
+        subprocess.Popen(['osascript', '-e', script],
+                         stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    except Exception:
+        pass
+
+
+def _show_error_dialog(title, message):
+    """Show a blocking error dialog on macOS."""
+    if platform.system() == "Darwin":
+        try:
+            import subprocess
+            script = (
+                f'display dialog "{message}" '
+                f'with title "{title}" '
+                f'buttons {{"OK"}} default button "OK" '
+                f'with icon stop'
+            )
+            subprocess.run(['osascript', '-e', script], timeout=60)
+        except Exception:
+            pass
+    log.error(f"{title}: {message}")
+
+
 # ── Entry Point ───────────────────────────────────────────────────────────────
 
 def main():
@@ -632,6 +664,9 @@ def main():
     log.info(f"Python: {sys.version}")
     log.info(f"PID: {os.getpid()}")
     log.info("=" * 60)
+
+    # Show launch notification so user knows the app is starting
+    _show_notification("AI TimeKeeper", f"Starting v{AGENT_VERSION}...")
 
     _kill_old_instances()
 
@@ -650,7 +685,8 @@ def main():
             cfg = config.first_run_setup()
         except (ValueError, Exception) as e:
             log.error(f"First-run setup failed: {e}")
-            log.error("Agent cannot start without configuration. Exiting.")
+            _show_error_dialog("AI TimeKeeper — Setup Failed",
+                               f"Could not complete setup: {e}\\n\\nRestart the app to try again.")
             sys.exit(1)
 
     # Inject version so uploader can report it in ingest payload
@@ -659,6 +695,8 @@ def main():
 
     tray_icon = _build_tray_icon(loop)
     if tray_icon:
+        _show_notification("AI TimeKeeper",
+                           f"Tracking active for {cfg.get('user_email', 'unknown')}. Look for the \\u26a1 icon in your menu bar.")
         # On macOS pystray MUST run on the main thread.
         # Move the tracking loop to a background thread instead.
         tracking_thread = threading.Thread(target=loop.start, daemon=True)
@@ -671,6 +709,7 @@ def main():
             loop.flush_and_stop()
     else:
         # No tray available — run tracking on main thread directly
+        log.warning("Could not create tray icon — running headless")
         try:
             loop.start()
         except KeyboardInterrupt:
@@ -679,4 +718,12 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+    except Exception as e:
+        log.critical(f"FATAL: {e}\n{traceback.format_exc()}")
+        _show_error_dialog(
+            "AI TimeKeeper — Crash",
+            f"The app encountered an error and needs to close:\\n\\n{e}\\n\\nCheck ~/.aitimekeeper/agent.log for details."
+        )
+        sys.exit(1)

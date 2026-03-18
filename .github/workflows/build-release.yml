@@ -11,24 +11,36 @@ concurrency:
 
 jobs:
   build-mac:
-    runs-on: macos-latest   # Apple Silicon runner — produces universal binaries compatible with macOS 13+
+    runs-on: macos-latest
     steps:
       - uses: actions/checkout@v4
 
-      - name: Set up Python 3.11
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.11'   # Stable, widely compatible
+      - name: Install universal2 Python from python.org
+        run: |
+          # GitHub's setup-python installs ARM-only Python on macos-latest.
+          # We need the universal2 installer from python.org for fat binaries.
+          curl -L -o python-installer.pkg \
+            "https://www.python.org/ftp/python/3.11.9/python-3.11.9-macos11.pkg"
+          sudo installer -pkg python-installer.pkg -target /
+          # Use the python.org Python (universal2)
+          export PATH="/Library/Frameworks/Python.framework/Versions/3.11/bin:$PATH"
+          echo "/Library/Frameworks/Python.framework/Versions/3.11/bin" >> $GITHUB_PATH
+          python3.11 --version
+          # Verify it's universal2
+          file "$(python3.11 -c 'import sys; print(sys.executable)')"
 
       - name: Install dependencies
         working-directory: agent_client
         run: |
-          pip install pyinstaller pynput requests pyobjc-framework-Cocoa
+          python3.11 -m pip install --upgrade pip
+          python3.11 -m pip install pyinstaller pynput requests pyobjc-framework-Cocoa
 
-      - name: Build .app bundle
+      - name: Build universal .app bundle
         working-directory: agent_client
         run: |
-          python -m PyInstaller AITimeKeeper.spec --clean --noconfirm
+          python3.11 -m PyInstaller AITimeKeeper.spec --clean --noconfirm
+          # Verify universal binary
+          file dist/AITimeKeeper.app/Contents/MacOS/AITimeKeeper || true
 
       - name: Zip .app bundle
         working-directory: agent_client/dist
@@ -113,5 +125,5 @@ jobs:
             - **Windows** (Windows 10 and later): `AITimeKeeper-Windows-${{ github.ref_name }}.exe`
 
             ### Installation
-            **Mac**: Download the .zip, extract, drag `AITimeKeeper.app` to Applications.
+            **Mac**: Download the .zip, extract, drag `AITimeKeeper.app` to Applications. Right-click → Open on first launch.
             **Windows**: Download the .exe and run it.
