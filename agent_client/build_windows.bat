@@ -15,7 +15,7 @@ echo.
 
 REM 1. Install dependencies
 echo Installing Python dependencies...
-pip install pyinstaller pynput requests pywin32 uiautomation -q
+pip install pyinstaller pynput requests pywin32 psutil uiautomation pystray Pillow -q
 if errorlevel 1 ( echo Failed to install dependencies && exit /b 1 )
 
 REM 2. Clean previous builds

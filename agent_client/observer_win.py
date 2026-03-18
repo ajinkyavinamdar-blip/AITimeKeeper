@@ -4,7 +4,10 @@ Uses pywin32 + psutil for foreground window detection, uiautomation for
 browser URL extraction, and win32com for Office file names.
 """
 import re
+import logging
 from dataclasses import dataclass
+
+log = logging.getLogger("agent.observer_win")
 
 try:
     import win32gui
@@ -14,11 +17,15 @@ except ImportError:
     win32gui = None
     win32process = None
     psutil = None
+    log.warning("pywin32/psutil not installed — window detection will not work. "
+                "Install with: pip install pywin32 psutil")
 
 try:
     import uiautomation as auto
 except ImportError:
     auto = None
+    log.info("uiautomation not installed — browser URL extraction disabled. "
+             "Install with: pip install uiautomation")
 
 # Strip invisible Unicode characters
 _INVISIBLE_RE = re.compile(r'[\u200e\u200f\u200b\u200c\u200d\u2060\ufeff]')

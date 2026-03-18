@@ -74,7 +74,7 @@ if sys.platform == 'darwin':
         info_plist={
             'NSPrincipalClass': 'NSApplication',
             'LSUIElement': True,           # hide from Dock but still launchable from Finder
-            'CFBundleShortVersionString': '1.5.0',
+            'CFBundleShortVersionString': '1.5.1',
             'NSSupportsAutomaticTermination': False,
             'NSSupportsSuddenTermination': False,
             'CFBundleName': 'TimePulse',

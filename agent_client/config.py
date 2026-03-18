@@ -50,10 +50,12 @@ def _gui_prompt(title, prompt_text, default=""):
 
     if platform.system() == "Darwin":
         import subprocess
+        # Escape quotes and backslashes for AppleScript string literals
+        _esc = lambda s: s.replace('\\', '\\\\').replace('"', '\\"')
         script = (
-            f'display dialog "{prompt_text}" '
-            f'with title "{title}" '
-            f'default answer "{default}" '
+            f'display dialog "{_esc(prompt_text)}" '
+            f'with title "{_esc(title)}" '
+            f'default answer "{_esc(default)}" '
             f'with icon caution '
             f'buttons {{"Cancel", "OK"}} default button "OK"'
         )
@@ -108,7 +110,9 @@ def _win_vbs_input(title, prompt_text, default=""):
     """Fallback: use a VBScript InputBox via cscript (works on all Windows)."""
     try:
         import subprocess, tempfile
-        vbs = f'WScript.Echo InputBox("{prompt_text}", "{title}", "{default}")'
+        # Escape quotes for VBScript string literals (double the double-quotes)
+        _vesc = lambda s: s.replace('"', '""')
+        vbs = f'WScript.Echo InputBox("{_vesc(prompt_text)}", "{_vesc(title)}", "{_vesc(default)}")'
         with tempfile.NamedTemporaryFile(mode='w', suffix='.vbs', delete=False) as f:
             f.write(vbs)
             vbs_path = f.name
@@ -129,9 +133,15 @@ def _gui_alert(title, message):
     """Show an informational alert dialog."""
     if platform.system() == "Darwin":
         import subprocess
+        # Convert literal \n to AppleScript newlines and escape quotes
+        def _esc_as(s):
+            s = s.replace('\\n', '\n')  # literal \n → real newline
+            s = s.replace('"', '\\"')
+            s = s.replace('\n', '" & return & "')  # real newline → AppleScript return
+            return s
         script = (
-            f'display dialog "{message}" '
-            f'with title "{title}" '
+            f'display dialog "{_esc_as(message)}" '
+            f'with title "{_esc_as(title)}" '
             f'buttons {{"OK"}} default button "OK" '
             f'with icon note'
         )

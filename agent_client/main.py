@@ -18,7 +18,7 @@ import threading
 import logging
 import traceback
 
-AGENT_VERSION = '1.5.0'
+AGENT_VERSION = '1.5.1'
 
 import psutil
 
@@ -660,20 +660,33 @@ def _build_tray_icon(loop):
 # ── Startup UI helpers ────────────────────────────────────────────────────────
 
 def _show_notification(title, message):
-    """Show a macOS notification (non-blocking)."""
-    if platform.system() != "Darwin":
-        return
+    """Show a notification (non-blocking). Works on macOS and Windows."""
     try:
-        import subprocess
-        script = f'display notification "{message}" with title "{title}"'
-        subprocess.Popen(['osascript', '-e', script],
-                         stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        if platform.system() == "Darwin":
+            import subprocess
+            script = f'display notification "{message}" with title "{title}"'
+            subprocess.Popen(['osascript', '-e', script],
+                             stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        elif platform.system() == "Windows":
+            # Use Windows 10+ toast notification via PowerShell
+            import subprocess
+            ps_script = (
+                f'[Windows.UI.Notifications.ToastNotificationManager, Windows.UI.Notifications, ContentType = WindowsRuntime] | Out-Null; '
+                f'$template = [Windows.UI.Notifications.ToastNotificationManager]::GetTemplateContent(0); '
+                f'$text = $template.GetElementsByTagName("text"); '
+                f'$text.Item(0).AppendChild($template.CreateTextNode("{title} - {message}")) | Out-Null; '
+                f'$toast = [Windows.UI.Notifications.ToastNotification]::new($template); '
+                f'[Windows.UI.Notifications.ToastNotificationManager]::CreateToastNotifier("TimePulse").Show($toast)'
+            )
+            subprocess.Popen(['powershell', '-WindowStyle', 'Hidden', '-Command', ps_script],
+                             stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+                             creationflags=0x08000000)  # CREATE_NO_WINDOW
     except Exception:
         pass
 
 
 def _show_error_dialog(title, message):
-    """Show a blocking error dialog on macOS."""
+    """Show a blocking error dialog. Works on macOS and Windows."""
     if platform.system() == "Darwin":
         try:
             import subprocess
@@ -686,14 +699,26 @@ def _show_error_dialog(title, message):
             subprocess.run(['osascript', '-e', script], timeout=60)
         except Exception:
             pass
+    elif platform.system() == "Windows":
+        try:
+            import ctypes
+            # MB_OK | MB_ICONERROR | MB_TOPMOST
+            ctypes.windll.user32.MessageBoxW(
+                0, message.replace('\\n', '\n'), title, 0x00000010 | 0x00040000
+            )
+        except Exception:
+            pass
     log.error(f"{title}: {message}")
 
 
 def _run_status_window(loop, cfg):
-    """Show a recurring AppleScript dialog as a simple control panel.
-    This is the fallback when pystray is unavailable."""
-    if platform.system() != "Darwin":
-        # On non-Mac, just block the main thread
+    """Show a recurring dialog as a simple control panel.
+    This is the fallback when pystray is unavailable.
+    macOS: AppleScript dialog. Windows: tkinter window."""
+    if platform.system() == "Windows":
+        _run_status_window_win(loop, cfg)
+        return
+    elif platform.system() != "Darwin":
         try:
             while loop.running:
                 time.sleep(1)
@@ -773,6 +798,92 @@ def _run_status_window(loop, cfg):
         except Exception as e:
             log.error(f"Status window error: {e}")
             time.sleep(10)
+
+
+def _run_status_window_win(loop, cfg):
+    """Windows fallback status window using tkinter."""
+    try:
+        import tkinter as tk
+    except ImportError:
+        log.warning("tkinter not available — no status window on Windows")
+        try:
+            while loop.running:
+                time.sleep(1)
+        except KeyboardInterrupt:
+            pass
+        return
+
+    user_email = cfg.get('user_email', 'Unknown')
+
+    root = tk.Tk()
+    root.title("TimePulse")
+    root.configure(bg='#0f172a')
+    root.geometry("340x260")
+    root.resizable(False, False)
+    root.attributes('-topmost', True)
+
+    status_var = tk.StringVar(value="Tracking")
+    info_var = tk.StringVar(value="Starting...")
+
+    tk.Label(root, text="TimePulse", font=("Segoe UI", 16, "bold"),
+             fg='white', bg='#0f172a').pack(pady=(12, 4))
+    tk.Label(root, textvariable=status_var, font=("Segoe UI", 11),
+             fg='#06b6d4', bg='#0f172a').pack()
+    tk.Label(root, text=f"User: {user_email}", font=("Segoe UI", 9),
+             fg='#94a3b8', bg='#0f172a').pack(pady=(4, 0))
+    tk.Label(root, text=f"Version: {AGENT_VERSION}", font=("Segoe UI", 9),
+             fg='#64748b', bg='#0f172a').pack()
+    tk.Label(root, textvariable=info_var, font=("Segoe UI", 9),
+             fg='#64748b', bg='#0f172a', wraplength=300).pack(pady=(8, 4))
+
+    btn_frame = tk.Frame(root, bg='#0f172a')
+    btn_frame.pack(pady=8)
+
+    def toggle_pause():
+        if loop.paused:
+            loop.resume()
+        else:
+            loop.pause()
+
+    def quit_app():
+        loop.flush_and_stop()
+        root.destroy()
+
+    pause_btn = tk.Button(btn_frame, text="Pause Tracking", command=toggle_pause,
+                          font=("Segoe UI", 9), width=14, bg='#1e293b', fg='white',
+                          activebackground='#334155', activeforeground='white', relief='flat')
+    pause_btn.pack(side='left', padx=4)
+
+    quit_btn = tk.Button(btn_frame, text="Quit TimePulse", command=quit_app,
+                         font=("Segoe UI", 9), width=14, bg='#7f1d1d', fg='white',
+                         activebackground='#991b1b', activeforeground='white', relief='flat')
+    quit_btn.pack(side='left', padx=4)
+
+    def refresh_ui():
+        if not loop.running:
+            root.destroy()
+            return
+        st = "Paused" if loop.paused else "Tracking"
+        status_var.set(st)
+        pause_btn.config(text="Resume Tracking" if loop.paused else "Pause Tracking")
+        upload_info = ""
+        if loop._last_successful_upload:
+            ago = int(time.time() - loop._last_successful_upload)
+            upload_info = f"Last upload: {ago}s ago" if ago < 60 else f"Last upload: {ago // 60}m ago"
+        else:
+            upload_info = "Waiting for first upload..."
+        info_var.set(f"Tracked: {loop._track_count}  |  Uploaded: {loop._upload_count}\n{upload_info}")
+        root.after(2000, refresh_ui)
+
+    def on_close():
+        root.withdraw()  # hide window, keep running
+    root.protocol("WM_DELETE_WINDOW", on_close)
+
+    root.after(1000, refresh_ui)
+    try:
+        root.mainloop()
+    except Exception:
+        pass
 
 
 # ── Entry Point ───────────────────────────────────────────────────────────────
