@@ -56,7 +56,7 @@ jobs:
       - name: Install dependencies
         working-directory: agent_client
         run: |
-          pip install pyinstaller pynput requests pywin32 psutil uiautomation
+          pip install pyinstaller pynput requests pywin32 psutil uiautomation pystray Pillow
 
       - name: Build .exe
         working-directory: agent_client

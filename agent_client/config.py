@@ -39,19 +39,17 @@ def is_configured(cfg: dict) -> bool:
 
 
 def _gui_prompt(title, prompt_text, default=""):
-    """Show a macOS dialog box to get text input from the user.
+    """Show a dialog to get text input from the user.
 
-    Works from background-only .app bundles by using osascript directly
-    (not via System Events, which requires foreground access).
+    macOS: uses osascript (works from background .app bundles).
+    Windows: uses a tkinter dialog (bundled with Python, no extra deps).
+    Fallback: stdin if available.
     """
     if sys.stdin and sys.stdin.isatty():
-        return input(f"{prompt_text} ").strip()
+        return input(f"{prompt_text} [{default}]: ").strip() or default
 
     if platform.system() == "Darwin":
         import subprocess
-        # Use top-level AppleScript dialog (not tell app "System Events")
-        # This works from LSBackgroundOnly apps because osascript itself
-        # can present dialogs as a helper process.
         script = (
             f'display dialog "{prompt_text}" '
             f'with title "{title}" '
@@ -67,7 +65,6 @@ def _gui_prompt(title, prompt_text, default=""):
             if result.returncode != 0:
                 log.warning(f"Dialog cancelled or failed: {result.stderr.strip()}")
                 return ""
-            # Output format: "button returned:OK, text returned:user@email.com"
             output = result.stdout.strip()
             for part in output.split(", "):
                 if part.startswith("text returned:"):
@@ -76,11 +73,60 @@ def _gui_prompt(title, prompt_text, default=""):
         except Exception as e:
             log.error(f"GUI prompt failed: {e}")
             return ""
+
+    elif platform.system() == "Windows":
+        return _win_input_dialog(title, prompt_text, default)
+
     return ""
 
 
+def _win_input_dialog(title, prompt_text, default=""):
+    """Show a text input dialog on Windows using tkinter."""
+    try:
+        import tkinter as tk
+        from tkinter import simpledialog
+
+        # Create a hidden root window
+        root = tk.Tk()
+        root.withdraw()
+        root.attributes('-topmost', True)
+
+        result = simpledialog.askstring(
+            title, prompt_text,
+            initialvalue=default,
+            parent=root
+        )
+        root.destroy()
+        return result.strip() if result else ""
+    except Exception as e:
+        log.error(f"Windows GUI prompt failed: {e}")
+        # Last resort: try ctypes MessageBox + VBScript InputBox
+        return _win_vbs_input(title, prompt_text, default)
+
+
+def _win_vbs_input(title, prompt_text, default=""):
+    """Fallback: use a VBScript InputBox via cscript (works on all Windows)."""
+    try:
+        import subprocess, tempfile
+        vbs = f'WScript.Echo InputBox("{prompt_text}", "{title}", "{default}")'
+        with tempfile.NamedTemporaryFile(mode='w', suffix='.vbs', delete=False) as f:
+            f.write(vbs)
+            vbs_path = f.name
+        try:
+            result = subprocess.run(
+                ['cscript', '//Nologo', vbs_path],
+                capture_output=True, text=True, timeout=120
+            )
+            return result.stdout.strip()
+        finally:
+            os.remove(vbs_path)
+    except Exception as e:
+        log.error(f"VBScript fallback failed: {e}")
+        return ""
+
+
 def _gui_alert(title, message):
-    """Show an informational alert dialog on macOS."""
+    """Show an informational alert dialog."""
     if platform.system() == "Darwin":
         import subprocess
         script = (
@@ -93,6 +139,24 @@ def _gui_alert(title, message):
             subprocess.run(['osascript', '-e', script], timeout=30)
         except Exception:
             pass
+    elif platform.system() == "Windows":
+        try:
+            import ctypes
+            # MB_OK | MB_ICONINFORMATION | MB_TOPMOST
+            ctypes.windll.user32.MessageBoxW(
+                0, message.replace('\\n', '\n'), title, 0x00000040 | 0x00040000
+            )
+        except Exception:
+            try:
+                import tkinter as tk
+                from tkinter import messagebox
+                root = tk.Tk()
+                root.withdraw()
+                root.attributes('-topmost', True)
+                messagebox.showinfo(title, message.replace('\\n', '\n'), parent=root)
+                root.destroy()
+            except Exception:
+                pass
 
 
 def first_run_setup():
@@ -152,8 +216,9 @@ def first_run_setup():
 
     cfg = {"server_url": server_url, "user_email": user_email, "api_token": api_token}
     save(cfg)
+    tray_location = "menu bar" if platform.system() == "Darwin" else "system tray"
     _gui_alert("TimePulse — Ready!",
-               f"Setup complete for {user_email}.\\n\\nThe agent is now tracking in the background. Look for the ⚡ icon in your menu bar.")
+               f"Setup complete for {user_email}.\\n\\nThe agent is now tracking in the background. Look for the icon in your {tray_location}.")
     log.info(f"Config saved for {user_email}. Setup complete.")
     return cfg
 

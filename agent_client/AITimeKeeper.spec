@@ -36,7 +36,7 @@ a = Analysis(
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],
-    excludes=['tkinter', 'matplotlib', 'numpy', 'scipy'],
+    excludes=['matplotlib', 'numpy', 'scipy'],
     noarchive=False,
 )
 
@@ -74,7 +74,7 @@ if sys.platform == 'darwin':
         info_plist={
             'NSPrincipalClass': 'NSApplication',
             'LSUIElement': True,           # hide from Dock but still launchable from Finder
-            'CFBundleShortVersionString': '1.4.9',
+            'CFBundleShortVersionString': '1.5.0',
             'NSSupportsAutomaticTermination': False,
             'NSSupportsSuddenTermination': False,
             'CFBundleName': 'TimePulse',

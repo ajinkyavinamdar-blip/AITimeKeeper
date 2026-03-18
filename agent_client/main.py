@@ -18,7 +18,7 @@ import threading
 import logging
 import traceback
 
-AGENT_VERSION = '1.4.9'
+AGENT_VERSION = '1.5.0'
 
 import psutil
 
