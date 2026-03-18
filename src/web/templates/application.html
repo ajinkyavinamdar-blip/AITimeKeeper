@@ -267,8 +267,16 @@
                 const shortEl = document.getElementById('agent-ver-short');
 
                 if (!installed) {
-                    if (curEl) curEl.textContent = 'Not installed';
-                    if (shortEl) shortEl.textContent = 'N/A';
+                    // Check if agent is actually connected (has recent heartbeat)
+                    const hasAgent = myData.last_heartbeat || false;
+                    if (hasAgent) {
+                        if (curEl) curEl.textContent = 'Update available';
+                        if (shortEl) shortEl.textContent = 'Old';
+                        if (curEl) { curEl.classList.add('text-amber-400'); curEl.classList.remove('text-slate-400'); }
+                    } else {
+                        if (curEl) curEl.textContent = 'Not installed';
+                        if (shortEl) shortEl.textContent = 'N/A';
+                    }
                 } else {
                     if (curEl) curEl.textContent = `v${installed}`;
                     if (shortEl) shortEl.textContent = `v${installed}`;
@@ -279,6 +287,24 @@
                 if (!ghRes.ok) return;
                 const rel = await ghRes.json();
                 const latest = (rel.tag_name || '').replace(/^v/, '');
+
+                // If no installed version but a release exists, show download banner
+                if (!installed && latest) {
+                    const banner = document.getElementById('agent-update-banner');
+                    if (banner) banner.classList.remove('hidden');
+                    const verSpan = document.getElementById('agent-update-ver');
+                    if (verSpan) verSpan.textContent = `v${latest}`;
+                    const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0;
+                    const assets = rel.assets || [];
+                    let downloadUrl = rel.html_url;
+                    for (const a of assets) {
+                        if (isMac && a.name.includes('Mac')) { downloadUrl = a.browser_download_url; break; }
+                        if (!isMac && a.name.includes('Windows')) { downloadUrl = a.browser_download_url; break; }
+                    }
+                    const link = document.getElementById('agent-update-link');
+                    if (link) link.href = downloadUrl;
+                    return;
+                }
 
                 if (!installed || !latest) return;
 

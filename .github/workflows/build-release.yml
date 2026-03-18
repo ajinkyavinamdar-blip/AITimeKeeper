@@ -5,6 +5,10 @@ on:
     tags:
       - 'v*'   # Trigger on version tags like v1.4.6
 
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false   # Never cancel a running build
+
 jobs:
   build-mac:
     runs-on: macos-13   # Ventura — ensures compatibility with macOS 13+

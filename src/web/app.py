@@ -848,11 +848,11 @@ def api_rotate_token():
 
 @app.route('/api/me/agent-version')
 def api_my_agent_version():
-    """Returns the current user's installed agent version from last heartbeat."""
+    """Returns the current user's installed agent version and heartbeat info."""
     if not g.user:
         return jsonify({'error': 'Not logged in'}), 401
-    version = get_user_agent_version(g.user['email'])
-    return jsonify({'agent_version': version})
+    info = get_user_agent_version(g.user['email'])
+    return jsonify(info)
 
 
 def start_server(agent=None):

@@ -404,9 +404,12 @@ class AgentLoop:
             time.sleep(self.POLL_INTERVAL)
 
     def _upload_loop(self):
+        first_run = True
         while self.running:
             try:
-                time.sleep(self.UPLOAD_INTERVAL)
+                # First upload after 10s (enough to collect some data), then every 30s
+                time.sleep(10 if first_run else self.UPLOAD_INTERVAL)
+                first_run = False
                 if self.paused:
                     continue
                 with self.lock:

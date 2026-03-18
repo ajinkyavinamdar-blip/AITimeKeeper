@@ -1131,13 +1131,19 @@ def update_agent_heartbeat(email: str, agent_version: str = None):
 
 
 def get_user_agent_version(email: str):
-    """Return the agent version string for a user, or None."""
+    """Return the agent version and last heartbeat for a user."""
     conn = get_db_connection()
     try:
         c = conn.cursor(cursor_factory=RealDictCursor)
-        c.execute("SELECT agent_version FROM users WHERE LOWER(email) = LOWER(%s)", (email,))
+        c.execute("SELECT agent_version, last_agent_heartbeat FROM users WHERE LOWER(email) = LOWER(%s)", (email,))
         row = c.fetchone()
-        return row['agent_version'] if row else None
+        if not row:
+            return {'agent_version': None, 'last_heartbeat': None}
+        hb = row['last_agent_heartbeat']
+        return {
+            'agent_version': row['agent_version'],
+            'last_heartbeat': hb.isoformat() if hb else None,
+        }
     finally:
         release_db_connection(conn)
 
