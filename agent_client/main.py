@@ -378,6 +378,13 @@ class AgentLoop:
             try:
                 if not self.paused and not self.idle_filter.is_idle() and self.observer:
                     activity = self.observer.get_current_activity()
+                    # Skip lock screen / sleep / screensaver — not real activity
+                    app_lower = (activity.app_name or "").lower()
+                    if app_lower in ("loginwindow", "lockapp", "logonui", "screensaver",
+                                     "screenserver", "usernotificationcenter"):
+                        log.debug(f"Skipping system screen: {activity.app_name}")
+                        time.sleep(self.POLL_INTERVAL)
+                        continue
                     entry = {
                         "timestamp": datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
                         "app_name": activity.app_name,

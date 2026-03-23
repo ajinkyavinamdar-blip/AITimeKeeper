@@ -771,6 +771,10 @@ def api_ingest():
 
     cat_mapper, cli_mapper = _get_mappers()
 
+    # ── Filter out lock screen / sleep entries (not real activity) ─────────
+    _SKIP_APPS = {'loginwindow', 'lockapp', 'logonui', 'screensaver', 'screenserver'}
+    logs = [e for e in logs if e.get('app_name', '').lower() not in _SKIP_APPS]
+
     # ── Resolve client + category for each row (in-memory, no DB) ─────────
     for entry in logs:
         try:
