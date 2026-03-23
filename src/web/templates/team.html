@@ -507,14 +507,27 @@
             }));
         }
         if (memberEmails) {
-            // Filter by_client to only show entries where selected members contributed
+            // Filter and recalculate by_client totals from member_breakdown
             byClient = byClient.filter(c => {
                 if (!c.member_breakdown) return false;
                 return Object.keys(c.member_breakdown).some(e => memberEmails.has(e.toLowerCase()) || memberEmails.has(e));
+            }).map(c => {
+                const mb = c.member_breakdown || {};
+                const memberTotal = Object.entries(mb)
+                    .filter(([e]) => memberEmails.has(e.toLowerCase()) || memberEmails.has(e))
+                    .reduce((sum, [, v]) => sum + (typeof v === 'number' ? v : (v.total_time || 0)), 0);
+                return { ...c, total_time: memberTotal };
             });
+            // Filter and recalculate by_category totals from member_breakdown
             byCategory = byCategory.filter(c => {
                 if (!c.member_breakdown) return false;
                 return Object.keys(c.member_breakdown).some(e => memberEmails.has(e.toLowerCase()) || memberEmails.has(e));
+            }).map(c => {
+                const mb = c.member_breakdown || {};
+                const memberTotal = Object.entries(mb)
+                    .filter(([e]) => memberEmails.has(e.toLowerCase()) || memberEmails.has(e))
+                    .reduce((sum, [, v]) => sum + (typeof v === 'number' ? v : (v.total_time || 0)), 0);
+                return { ...c, total_time: memberTotal };
             });
         }
 
