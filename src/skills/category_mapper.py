@@ -103,7 +103,7 @@ class CategoryMapper:
         # 4. Operations / Finance / Accounting
         if any(k in app_lower for k in [
             "zoho", "quickbooks", "tally", "xero", "excel", "numbers",
-            "freshbooks", "sage", "myob",
+            "freshbooks", "sage", "myob", "taxpower",
         ]):
             return _h("Operations")
         if is_browser and any(k in combined for k in [

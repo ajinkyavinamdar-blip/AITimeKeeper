@@ -1,5 +1,5 @@
 import re
-from ..database import get_mappings, get_client_by_zoho_org_id
+from ..database import get_mappings, get_client_by_zoho_org_id, get_clients
 
 # Zoho URL patterns — org ID appears right after /app/ in the path
 # e.g. https://books.zoho.in/app/738291234#/dashboard
@@ -24,18 +24,50 @@ def extract_zoho_org_id(url: str):
     return m.group(1) if m else None
 
 
+# File extensions that indicate document/spreadsheet work
+_DOC_EXTENSIONS = ('.xlsx', '.xls', '.xlsm', '.docx', '.doc', '.csv', '.pdf', '.pptx', '.ppt')
+_DOC_EXT_RE = re.compile(r'\.(?:xlsx?|xlsm|docx?|csv|pdf|pptx?)(?:\s|$|\]|\))', re.IGNORECASE)
+
+def _normalize(text):
+    """Lowercase and strip common separators for fuzzy matching."""
+    return re.sub(r'[_\-.\s]+', ' ', text.lower()).strip()
+
+def _fuzzy_contains(haystack, needle, threshold=0.8):
+    """Check if needle appears in haystack with fuzzy tolerance.
+    Uses simple token overlap: if >= threshold of needle tokens are in haystack, it's a match.
+    """
+    needle_tokens = _normalize(needle).split()
+    haystack_norm = _normalize(haystack)
+    if not needle_tokens:
+        return False
+    # Exact substring match first (fast path)
+    if _normalize(needle) in haystack_norm:
+        return True
+    # Token overlap for multi-word client names
+    if len(needle_tokens) == 1:
+        # Single word: require it as a standalone word in the haystack
+        return bool(re.search(r'\b' + re.escape(needle_tokens[0]) + r'\b', haystack_norm))
+    matched = sum(1 for t in needle_tokens if t in haystack_norm)
+    return (matched / len(needle_tokens)) >= threshold
+
+
 class ClientMapper:
     def __init__(self):
         self.mappings = []
+        self._clients = []  # cached client list for fuzzy matching
         self.reload_mappings()
 
     def reload_mappings(self):
-        """Load mappings from the database."""
+        """Load mappings and client list from the database."""
         try:
             self.mappings = get_mappings()
         except Exception as e:
             print(f"Error loading client mappings: {e}")
             self.mappings = []
+        try:
+            self._clients = get_clients()
+        except Exception:
+            self._clients = []
 
     def resolve(self, app_name, window_title, url_or_filename):
         """
@@ -76,6 +108,16 @@ class ClientMapper:
                 if mapping['pattern_type'] == 'app':
                     if mapping['pattern_value'].lower() in app_name.lower():
                         return mapping['client_name']
+
+        # 4. Fuzzy filename matching for Excel/Word/PDF documents
+        #    If the window title or filename looks like a document, try to match
+        #    client names from the clients table against the text.
+        for text in (window_title, url_or_filename):
+            if text and _DOC_EXT_RE.search(text):
+                # Sort clients by name length (longest first) to prefer more specific matches
+                for client in sorted(self._clients, key=lambda c: len(c['name']), reverse=True):
+                    if len(client['name']) >= 3 and _fuzzy_contains(text, client['name']):
+                        return client['name']
 
         # Legacy: "2026_Audit_[ClientName]" filename pattern
         for text in (window_title, url_or_filename):
