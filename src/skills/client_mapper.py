@@ -11,6 +11,8 @@ _ZOHO_PRODUCTS = ('books', 'invoice', 'expense', 'payroll', 'people',
 _ZOHO_TLDS = ('.zoho.com', '.zoho.in', '.zoho.eu', '.zoho.com.au', '.zoho.jp')
 ZOHO_DOMAINS = tuple(f'{p}{t}' for p in _ZOHO_PRODUCTS for t in _ZOHO_TLDS)
 ZOHO_ORG_RE = re.compile(r'/app/(\d{6,})', re.IGNORECASE)
+# Some Zoho URLs put the org ID as a query param: ?organization_id=60000553962
+ZOHO_ORG_QUERY_RE = re.compile(r'organization_id=(\d{6,})', re.IGNORECASE)
 
 
 def extract_zoho_org_id(url: str):
@@ -20,8 +22,21 @@ def extract_zoho_org_id(url: str):
     url_lower = url.lower()
     if not any(d in url_lower for d in ZOHO_DOMAINS):
         return None
+    # Try /app/<orgid> path style first
     m = ZOHO_ORG_RE.search(url)
+    if m:
+        return m.group(1)
+    # Try ?organization_id=<orgid> query param style
+    m = ZOHO_ORG_QUERY_RE.search(url)
     return m.group(1) if m else None
+
+
+def _is_zoho_url(url: str):
+    """Check if URL belongs to any Zoho product."""
+    if not url:
+        return False
+    url_lower = url.lower()
+    return any(d in url_lower for d in ZOHO_DOMAINS)
 
 
 # File extensions that indicate document/spreadsheet work
@@ -85,10 +100,7 @@ class ClientMapper:
             if client:
                 return client
 
-        if not self.mappings:
-            return None
-
-        # 1. URL/Filename pattern match
+        # 1. URL/Filename pattern match (only if mappings exist)
         if url_or_filename:
             for mapping in self.mappings:
                 if mapping['pattern_type'] == 'url':
@@ -109,7 +121,14 @@ class ClientMapper:
                     if mapping['pattern_value'].lower() in app_name.lower():
                         return mapping['client_name']
 
-        # 4. Fuzzy filename matching for Excel/Word/PDF documents
+        # 4. Zoho window title matching — when on a Zoho page but no org ID in URL,
+        #    try to match client names from the window title (e.g. "... - Botspace - Microsoft Edge")
+        if url_or_filename and _is_zoho_url(url_or_filename) and window_title:
+            for client in sorted(self._clients, key=lambda c: len(c['name']), reverse=True):
+                if len(client['name']) >= 3 and _fuzzy_contains(window_title, client['name']):
+                    return client['name']
+
+        # 5. Fuzzy filename matching for Excel/Word/PDF documents
         #    If the window title or filename looks like a document, try to match
         #    client names from the clients table against the text.
         for text in (window_title, url_or_filename):
