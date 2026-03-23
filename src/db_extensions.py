@@ -11,11 +11,11 @@ def _ue_clause(user_email, alias=''):
     sql = f" AND (LOWER({tbl}user_email) = LOWER(%s) OR ({tbl}user_email IS NULL AND %s = %s))"
     return sql, [user_email, user_email, SEED_ADMIN_EMAIL]
 
-def get_category_details(category_name, date_str=None):
+def get_category_details(category_name, date_str=None, user_email=None):
     conn = get_db_connection()
     try:
         c = conn.cursor(cursor_factory=RealDictCursor)
-        
+
         if not date_str:
             date_str = datetime.datetime.now().strftime('%Y-%m-%d')
         start_time = f"{date_str} 00:00:00"
@@ -33,9 +33,14 @@ def get_category_details(category_name, date_str=None):
             where_clause = "category_id = %s"
             params = [cat_id, start_time, end_time]
 
+        # Always filter by user_email for data isolation
+        if user_email:
+            where_clause += " AND LOWER(user_email) = LOWER(%s)"
+            params.append(user_email)
+
         c.execute(f'''
             SELECT id, app_name, window_title, url_or_filename, duration, client, timestamp
-            FROM activities 
+            FROM activities
             WHERE {where_clause} AND timestamp >= %s AND timestamp <= %s
             ORDER BY timestamp DESC
         ''', tuple(params))
@@ -67,11 +72,11 @@ def get_category_details(category_name, date_str=None):
     finally:
         release_db_connection(conn)
 
-def get_client_details(client_name, date_str=None):
+def get_client_details(client_name, date_str=None, user_email=None):
     conn = get_db_connection()
     try:
         c = conn.cursor(cursor_factory=RealDictCursor)
-        
+
         if not date_str:
             date_str = datetime.datetime.now().strftime('%Y-%m-%d')
         start_time = f"{date_str} 00:00:00"
@@ -84,9 +89,14 @@ def get_client_details(client_name, date_str=None):
             where_clause = "client = %s"
             params = [client_name, start_time, end_time]
 
+        # Always filter by user_email for data isolation
+        if user_email:
+            where_clause += " AND LOWER(user_email) = LOWER(%s)"
+            params.append(user_email)
+
         c.execute(f'''
             SELECT id, app_name, window_title, url_or_filename, duration, client, timestamp
-            FROM activities 
+            FROM activities
             WHERE {where_clause} AND timestamp >= %s AND timestamp <= %s
             ORDER BY timestamp DESC
         ''', tuple(params))

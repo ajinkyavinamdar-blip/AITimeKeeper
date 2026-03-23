@@ -383,10 +383,8 @@ def api_summary():
 
 @app.route('/api/focus_stats')
 def api_focus_stats():
-    # In a real app, we'd query the DB for "Focus" vs "Distraction" time today
-    # For now, let's calculate it from get_todays_activities or a specialized query
-    # We will compute it on the fly for simplicity
-    rows = get_todays_activities()
+    user_email = g.user['email'] if g.user else None
+    rows = get_todays_activities(user_email=user_email)
     
     total_time = 0
     focus_time = 0
@@ -448,15 +446,15 @@ def api_categories():
 @app.route('/api/category_details/<category_name>')
 def api_category_details(category_name):
     date_str = request.args.get('date')
-    # Retrieve hierarchical data
-    data = get_category_details(category_name, date_str)
+    user_email = g.user['email'] if g.user else None
+    data = get_category_details(category_name, date_str, user_email=user_email)
     return jsonify(data)
 
 @app.route('/api/client_details/<client_name>')
 def api_client_details(client_name):
     date_str = request.args.get('date')
-    # Retrieve hierarchical data
-    data = get_client_details(client_name, date_str)
+    user_email = g.user['email'] if g.user else None
+    data = get_client_details(client_name, date_str, user_email=user_email)
     return jsonify(data)
 
 @app.route('/api/activities/assign_bulk', methods=['POST'])
@@ -552,8 +550,9 @@ def application_details(app_name):
 
 @app.route('/api/application/<app_name>')
 def api_application_details(app_name):
-    stats = get_application_stats(app_name)
-    activities = get_application_activities(app_name)
+    user_email = g.user['email'] if g.user else None
+    stats = get_application_stats(app_name, user_email=user_email)
+    activities = get_application_activities(app_name, user_email=user_email)
     
     # Convert activities to list of dicts
     activity_list = []

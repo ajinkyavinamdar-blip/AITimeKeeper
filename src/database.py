@@ -752,7 +752,7 @@ def get_weekly_summary_stats(date_str=None, user_email=None):
     finally:
         release_db_connection(conn)
 
-def get_application_stats(app_name, date_str=None):
+def get_application_stats(app_name, date_str=None, user_email=None):
     conn = get_db_connection()
     try:
         c = conn.cursor(cursor_factory=RealDictCursor)
@@ -761,30 +761,33 @@ def get_application_stats(app_name, date_str=None):
         start_time = f"{date_str} 00:00:00"
         end_time = f"{date_str} 23:59:59"
 
-        c.execute('''
+        user_clause = "AND LOWER(user_email) = LOWER(%s)" if user_email else ""
+        base_params = (app_name, start_time, end_time, user_email) if user_email else (app_name, start_time, end_time)
+
+        c.execute(f'''
             SELECT COALESCE(SUM(duration), 0)
-            FROM activities 
-            WHERE app_name = %s AND timestamp >= %s AND timestamp <= %s
-        ''', (app_name, start_time, end_time))
+            FROM activities
+            WHERE app_name = %s AND timestamp >= %s AND timestamp <= %s {user_clause}
+        ''', base_params)
         total_duration = c.fetchone()['coalesce']
 
-        c.execute('''
+        c.execute(f'''
             SELECT window_title, SUM(duration) as total_time
-            FROM activities 
-            WHERE app_name = %s AND timestamp >= %s AND timestamp <= %s
+            FROM activities
+            WHERE app_name = %s AND timestamp >= %s AND timestamp <= %s {user_clause}
             GROUP BY window_title
             ORDER BY total_time DESC
             LIMIT 10
-        ''', (app_name, start_time, end_time))
+        ''', base_params)
         by_window = [dict(row) for row in c.fetchall()]
 
-        c.execute('''
+        c.execute(f'''
             SELECT client, SUM(duration) as total_time
-            FROM activities 
-            WHERE app_name = %s AND timestamp >= %s AND timestamp <= %s
+            FROM activities
+            WHERE app_name = %s AND timestamp >= %s AND timestamp <= %s {user_clause}
             GROUP BY client
             ORDER BY total_time DESC
-        ''', (app_name, start_time, end_time))
+        ''', base_params)
         by_client = [dict(row) for row in c.fetchall()]
 
         return {
@@ -796,7 +799,7 @@ def get_application_stats(app_name, date_str=None):
     finally:
         release_db_connection(conn)
 
-def get_application_activities(app_name, date_str=None):
+def get_application_activities(app_name, date_str=None, user_email=None):
     conn = get_db_connection()
     try:
         c = conn.cursor(cursor_factory=RealDictCursor)
@@ -804,13 +807,22 @@ def get_application_activities(app_name, date_str=None):
             date_str = datetime.datetime.now().strftime('%Y-%m-%d')
         start_time = f"{date_str} 00:00:00"
         end_time = f"{date_str} 23:59:59"
-        
-        c.execute('''
-            SELECT * FROM activities 
-            WHERE app_name = %s AND timestamp >= %s AND timestamp <= %s
-            ORDER BY timestamp DESC
-            LIMIT 100
-        ''', (app_name, start_time, end_time))
+
+        if user_email:
+            c.execute('''
+                SELECT * FROM activities
+                WHERE app_name = %s AND timestamp >= %s AND timestamp <= %s
+                  AND LOWER(user_email) = LOWER(%s)
+                ORDER BY timestamp DESC
+                LIMIT 100
+            ''', (app_name, start_time, end_time, user_email))
+        else:
+            c.execute('''
+                SELECT * FROM activities
+                WHERE app_name = %s AND timestamp >= %s AND timestamp <= %s
+                ORDER BY timestamp DESC
+                LIMIT 100
+            ''', (app_name, start_time, end_time))
         rows = [dict(row) for row in c.fetchall()]
         return rows
     finally:
