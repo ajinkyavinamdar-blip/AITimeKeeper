@@ -5,7 +5,7 @@
     <h1 class="text-xl font-bold text-white tracking-tight">Admin Panel</h1>
     <div class="flex items-center gap-2 mt-1">
         <div class="w-1.5 h-1.5 rounded-full bg-amber-500"></div>
-        <span class="text-[10px] font-bold text-amber-400 uppercase tracking-wider">Org-Wide Settings</span>
+        <span class="text-[11px] font-bold text-amber-400 uppercase tracking-wider">Org-Wide Settings</span>
     </div>
 </div>
 {% endblock %}
@@ -16,24 +16,29 @@
     <!-- Tab Bar -->
     <div class="flex items-center gap-1 bg-slate-800/50 rounded-2xl p-1.5 border border-slate-700/50 w-fit">
         <button onclick="switchTab('users')" id="tab-users"
-            class="tab-btn px-5 py-2 text-xs font-bold rounded-xl bg-amber-600 text-white shadow-lg transition-all">
-            👥 Users
+            class="tab-btn px-5 py-2 text-xs font-bold rounded-xl bg-amber-600 text-white shadow-lg transition-all flex items-center gap-1.5">
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+            Users
         </button>
         <button onclick="switchTab('clients')" id="tab-clients"
-            class="tab-btn px-5 py-2 text-xs font-bold rounded-xl text-slate-400 hover:text-white transition-all">
-            🏢 Clients
+            class="tab-btn px-5 py-2 text-xs font-bold rounded-xl text-slate-400 hover:text-white transition-all flex items-center gap-1.5">
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/></svg>
+            Clients
         </button>
         <button onclick="switchTab('settings')" id="tab-settings"
-            class="tab-btn px-5 py-2 text-xs font-bold rounded-xl text-slate-400 hover:text-white transition-all">
-            ⚙️ Org Settings
+            class="tab-btn px-5 py-2 text-xs font-bold rounded-xl text-slate-400 hover:text-white transition-all flex items-center gap-1.5">
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+            Org Settings
         </button>
         <button onclick="switchTab('categories')" id="tab-categories"
-            class="tab-btn px-5 py-2 text-xs font-bold rounded-xl text-slate-400 hover:text-white transition-all">
-            🏷️ Categories
+            class="tab-btn px-5 py-2 text-xs font-bold rounded-xl text-slate-400 hover:text-white transition-all flex items-center gap-1.5">
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z"/></svg>
+            Categories
         </button>
         <button onclick="switchTab('agents')" id="tab-agents"
-            class="tab-btn px-5 py-2 text-xs font-bold rounded-xl text-slate-400 hover:text-white transition-all">
-            📡 Agent Health
+            class="tab-btn px-5 py-2 text-xs font-bold rounded-xl text-slate-400 hover:text-white transition-all flex items-center gap-1.5">
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>
+            Agent Health
         </button>
     </div>
 
@@ -50,17 +55,17 @@
             <h2 class="text-sm font-bold text-amber-400 uppercase tracking-wider mb-4">Add / Edit User</h2>
             <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
                 <div>
-                    <label class="text-[10px] text-slate-400 uppercase tracking-wider font-semibold">Full Name</label>
+                    <label class="text-[11px] text-slate-400 uppercase tracking-wider font-semibold">Full Name</label>
                     <input id="u-name" type="text" placeholder="e.g. Jane Doe"
                         class="mt-1 w-full bg-slate-900/50 border border-slate-700 text-white text-sm rounded-xl px-4 py-2.5 outline-none focus:border-amber-500 transition-colors">
                 </div>
                 <div>
-                    <label class="text-[10px] text-slate-400 uppercase tracking-wider font-semibold">Email</label>
+                    <label class="text-[11px] text-slate-400 uppercase tracking-wider font-semibold">Email</label>
                     <input id="u-email" type="email" placeholder="jane@cfologic.com"
                         class="mt-1 w-full bg-slate-900/50 border border-slate-700 text-white text-sm rounded-xl px-4 py-2.5 outline-none focus:border-amber-500 transition-colors">
                 </div>
                 <div>
-                    <label class="text-[10px] text-slate-400 uppercase tracking-wider font-semibold">Role</label>
+                    <label class="text-[11px] text-slate-400 uppercase tracking-wider font-semibold">Role</label>
                     <select id="u-role"
                         class="mt-1 w-full bg-slate-900/50 border border-slate-700 text-white text-sm rounded-xl px-4 py-2.5 outline-none focus:border-amber-500 transition-colors">
                         <option value="member">Member</option>
@@ -69,7 +74,7 @@
                     </select>
                 </div>
                 <div>
-                    <label class="text-[10px] text-slate-400 uppercase tracking-wider font-semibold">Reports To</label>
+                    <label class="text-[11px] text-slate-400 uppercase tracking-wider font-semibold">Reports To</label>
                     <select id="u-manager"
                         class="mt-1 w-full bg-slate-900/50 border border-slate-700 text-white text-sm rounded-xl px-4 py-2.5 outline-none focus:border-amber-500 transition-colors">
                         <option value="">— None —</option>
@@ -97,7 +102,7 @@
             <div class="overflow-x-auto">
                 <table class="w-full text-left text-sm">
                     <thead>
-                        <tr class="text-[10px] uppercase tracking-wider text-slate-500 border-b border-slate-700/50">
+                        <tr class="text-[11px] uppercase tracking-wider text-slate-500 border-b border-slate-700/50">
                             <th class="px-5 py-3">Name</th>
                             <th class="px-5 py-3">Email</th>
                             <th class="px-5 py-3">Role</th>
@@ -121,13 +126,13 @@
             <h2 class="text-sm font-bold text-amber-400 uppercase tracking-wider mb-6">Organisation Settings</h2>
             <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
-                    <label class="text-[10px] text-slate-400 uppercase tracking-wider font-semibold">Company
+                    <label class="text-[11px] text-slate-400 uppercase tracking-wider font-semibold">Company
                         Name</label>
                     <input id="s-company_name" type="text"
                         class="mt-1 w-full bg-slate-900/50 border border-slate-700 text-white text-sm rounded-xl px-4 py-2.5 outline-none focus:border-amber-500 transition-colors">
                 </div>
                 <div>
-                    <label class="text-[10px] text-slate-400 uppercase tracking-wider font-semibold">Default
+                    <label class="text-[11px] text-slate-400 uppercase tracking-wider font-semibold">Default
                         Currency</label>
                     <select id="s-default_currency"
                         class="mt-1 w-full bg-slate-900/50 border border-slate-700 text-white text-sm rounded-xl px-4 py-2.5 outline-none focus:border-amber-500 transition-colors">
@@ -138,13 +143,13 @@
                     </select>
                 </div>
                 <div>
-                    <label class="text-[10px] text-slate-400 uppercase tracking-wider font-semibold">Daily Work Hours
+                    <label class="text-[11px] text-slate-400 uppercase tracking-wider font-semibold">Daily Work Hours
                         Goal</label>
                     <input id="s-work_hours_goal" type="number" min="1" max="24"
                         class="mt-1 w-full bg-slate-900/50 border border-slate-700 text-white text-sm rounded-xl px-4 py-2.5 outline-none focus:border-amber-500 transition-colors">
                 </div>
                 <div>
-                    <label class="text-[10px] text-slate-400 uppercase tracking-wider font-semibold">Fiscal Year Start
+                    <label class="text-[11px] text-slate-400 uppercase tracking-wider font-semibold">Fiscal Year Start
                         Month</label>
                     <select id="s-fiscal_year_start"
                         class="mt-1 w-full bg-slate-900/50 border border-slate-700 text-white text-sm rounded-xl px-4 py-2.5 outline-none focus:border-amber-500 transition-colors">
@@ -172,12 +177,12 @@
             <h2 class="text-sm font-bold text-amber-400 uppercase tracking-wider mb-4">Add New Category</h2>
             <div class="flex flex-wrap gap-3 items-end">
                 <div>
-                    <label class="text-[10px] text-slate-400 uppercase tracking-wider font-semibold">Name</label>
+                    <label class="text-[11px] text-slate-400 uppercase tracking-wider font-semibold">Name</label>
                     <input id="c-name" type="text" placeholder="Category name"
                         class="mt-1 w-40 bg-slate-900/50 border border-slate-700 text-white text-sm rounded-xl px-4 py-2 outline-none focus:border-amber-500 transition-colors">
                 </div>
                 <div>
-                    <label class="text-[10px] text-slate-400 uppercase tracking-wider font-semibold">Color</label>
+                    <label class="text-[11px] text-slate-400 uppercase tracking-wider font-semibold">Color</label>
                     <input id="c-color" type="color" value="#8B5CF6"
                         class="mt-1 h-10 w-16 bg-slate-900/50 border border-slate-700 rounded-xl px-1 cursor-pointer">
                 </div>
@@ -217,12 +222,12 @@
                     <h2 class="text-sm font-bold text-white">Desktop Agent Status</h2>
                     <p class="text-xs text-slate-500 mt-0.5">Real-time health of each user's tracking agent</p>
                 </div>
-                <div class="text-[10px] text-slate-500" id="agent-health-refresh">Auto-refreshes every 30s</div>
+                <div class="text-[11px] text-slate-500" id="agent-health-refresh">Auto-refreshes every 30s</div>
             </div>
             <div class="overflow-x-auto">
                 <table class="w-full text-left text-sm">
                     <thead>
-                        <tr class="text-[10px] uppercase tracking-wider text-slate-500 border-b border-slate-700/50">
+                        <tr class="text-[11px] uppercase tracking-wider text-slate-500 border-b border-slate-700/50">
                             <th class="px-5 py-3">User</th>
                             <th class="px-5 py-3">Status</th>
                             <th class="px-5 py-3">Last Heartbeat</th>
@@ -244,18 +249,18 @@
             <h2 class="text-sm font-bold text-amber-400 uppercase tracking-wider mb-4">Add / Edit Client</h2>
             <div class="flex flex-wrap gap-3 items-end">
                 <div>
-                    <label class="text-[10px] text-slate-400 uppercase tracking-wider font-semibold">Client Name</label>
+                    <label class="text-[11px] text-slate-400 uppercase tracking-wider font-semibold">Client Name</label>
                     <input id="cl-name" type="text" placeholder="e.g. Acme Corp"
                         class="mt-1 w-52 bg-slate-900/50 border border-slate-700 text-white text-sm rounded-xl px-4 py-2 outline-none focus:border-amber-500 transition-colors">
                 </div>
                 <div>
-                    <label class="text-[10px] text-slate-400 uppercase tracking-wider font-semibold">Notes
+                    <label class="text-[11px] text-slate-400 uppercase tracking-wider font-semibold">Notes
                         (optional)</label>
                     <input id="cl-notes" type="text" placeholder="e.g. Retainer client"
                         class="mt-1 w-48 bg-slate-900/50 border border-slate-700 text-white text-sm rounded-xl px-4 py-2 outline-none focus:border-amber-500 transition-colors">
                 </div>
                 <div>
-                    <label class="text-[10px] text-slate-400 uppercase tracking-wider font-semibold">
+                    <label class="text-[11px] text-slate-400 uppercase tracking-wider font-semibold">
                         Zoho Org ID
                         <span class="ml-1 text-slate-600 normal-case font-normal">— auto-maps Zoho Books activity</span>
                     </label>
@@ -283,7 +288,7 @@
             <div class="overflow-x-auto">
                 <table class="w-full text-left text-sm">
                     <thead>
-                        <tr class="text-[10px] uppercase tracking-wider text-slate-500 border-b border-slate-700/50">
+                        <tr class="text-[11px] uppercase tracking-wider text-slate-500 border-b border-slate-700/50">
                             <th class="px-5 py-3">Name</th>
                             <th class="px-5 py-3">Assigned Users</th>
                             <th class="px-5 py-3">Notes</th>
@@ -334,11 +339,11 @@
     function switchTab(tab) {
         document.querySelectorAll('.tab-panel').forEach(p => p.classList.add('hidden'));
         document.querySelectorAll('.tab-btn').forEach(b => {
-            b.className = 'tab-btn px-5 py-2 text-xs font-bold rounded-xl text-slate-400 hover:text-white transition-all';
+            b.className = 'tab-btn px-5 py-2 text-xs font-bold rounded-xl text-slate-400 hover:text-white transition-all flex items-center gap-1.5';
         });
         document.getElementById(`panel-${tab}`).classList.remove('hidden');
         const btn = document.getElementById(`tab-${tab}`);
-        btn.className = 'tab-btn px-5 py-2 text-xs font-bold rounded-xl bg-amber-600 text-white shadow-lg transition-all';
+        btn.className = 'tab-btn px-5 py-2 text-xs font-bold rounded-xl bg-amber-600 text-white shadow-lg transition-all flex items-center gap-1.5';
     }
 
     // ─── Toast ───────────────────────────────────────────────────────────────────
@@ -382,16 +387,16 @@
             <td class="px-5 py-3 font-semibold text-white">${u.name}</td>
             <td class="px-5 py-3 text-slate-400 font-mono text-xs">${u.email}</td>
             <td class="px-5 py-3">
-                <span class="px-2 py-0.5 rounded-full border text-[10px] font-bold uppercase tracking-wider ${roleColors[u.role] || roleColors.member}">
+                <span class="px-2 py-0.5 rounded-full border text-[11px] font-bold uppercase tracking-wider ${roleColors[u.role] || roleColors.member}">
                     ${u.role}
                 </span>
             </td>
             <td class="px-5 py-3 text-slate-400">${u.manager_name || '—'}</td>
             <td class="px-5 py-3 text-right">
                 <button onclick="editUser(${JSON.stringify(u).replace(/"/g, '&quot;')})"
-                    class="px-3 py-1 text-[10px] font-bold bg-slate-700 hover:bg-slate-600 text-slate-300 rounded-lg transition-colors mr-2">Edit</button>
+                    class="px-3 py-1 text-[11px] font-bold bg-slate-700 hover:bg-slate-600 text-slate-300 rounded-lg transition-colors mr-2">Edit</button>
                 ${u.email !== 'Ajinkya@CFOLogic.com' ? `<button onclick="deleteUser(${u.id}, '${u.name}')"
-                    class="px-3 py-1 text-[10px] font-bold bg-red-900/50 hover:bg-red-800 text-red-300 rounded-lg transition-colors">Remove</button>` : '<span class="text-[10px] text-slate-600">Protected</span>'}
+                    class="px-3 py-1 text-[11px] font-bold bg-red-900/50 hover:bg-red-800 text-red-300 rounded-lg transition-colors">Remove</button>` : '<span class="text-[11px] text-slate-600">Protected</span>'}
             </td>
         </tr>
     `).join('');
@@ -412,17 +417,20 @@
     }
 
     async function saveUser() {
-        const payload = {
-            email: document.getElementById('u-email').value.trim(),
-            name: document.getElementById('u-name').value.trim(),
-            role: document.getElementById('u-role').value,
-            manager_id: document.getElementById('u-manager').value || null
-        };
-        if (!payload.email || !payload.name) { showToast('Email and name are required', 'error'); return; }
-        const res = await fetch('/api/admin/users', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
-        const data = await res.json();
-        if (res.ok) { showToast('User saved'); clearUserForm(); loadUsers(); }
-        else showToast(data.error || 'Error saving user', 'error');
+        const btn = event.target; btn.disabled = true; btn.textContent = 'Saving...';
+        try {
+            const payload = {
+                email: document.getElementById('u-email').value.trim(),
+                name: document.getElementById('u-name').value.trim(),
+                role: document.getElementById('u-role').value,
+                manager_id: document.getElementById('u-manager').value || null
+            };
+            if (!payload.email || !payload.name) { showToast('Email and name are required', 'error'); return; }
+            const res = await fetch('/api/admin/users', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+            const data = await res.json();
+            if (res.ok) { showToast('User saved'); clearUserForm(); loadUsers(); }
+            else showToast(data.error || 'Error saving user', 'error');
+        } finally { btn.disabled = false; btn.textContent = 'Save User'; }
     }
 
     async function deleteUser(id, name) {
@@ -444,12 +452,15 @@
     }
 
     async function saveSettings() {
-        const keys = ['company_name', 'default_currency', 'work_hours_goal', 'fiscal_year_start'];
-        const payload = {};
-        keys.forEach(k => { const el = document.getElementById(`s-${k}`); if (el) payload[k] = el.value; });
-        const res = await fetch('/api/admin/settings', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
-        if (res.ok) showToast('Settings saved');
-        else showToast('Error saving settings', 'error');
+        const btn = event.target; btn.disabled = true; btn.textContent = 'Saving...';
+        try {
+            const keys = ['company_name', 'default_currency', 'work_hours_goal', 'fiscal_year_start'];
+            const payload = {};
+            keys.forEach(k => { const el = document.getElementById(`s-${k}`); if (el) payload[k] = el.value; });
+            const res = await fetch('/api/admin/settings', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+            if (res.ok) showToast('Settings saved');
+            else showToast('Error saving settings', 'error');
+        } finally { btn.disabled = false; btn.textContent = 'Save Settings'; }
     }
 
     // ─── Categories ──────────────────────────────────────────────────────────────
@@ -478,13 +489,13 @@
                 </div>
             </div>
             <div class="flex items-center gap-4">
-                <label class="flex items-center gap-1.5 text-[10px] text-slate-400 cursor-pointer">
+                <label class="flex items-center gap-1.5 text-[11px] text-slate-400 cursor-pointer">
                     <input type="checkbox" ${c.is_focus ? 'checked' : ''} onchange="updateCatFlag(${c.id},'is_focus',this.checked)" class="accent-emerald-500 w-3.5 h-3.5"> Focus
                 </label>
-                <label class="flex items-center gap-1.5 text-[10px] text-slate-400 cursor-pointer">
+                <label class="flex items-center gap-1.5 text-[11px] text-slate-400 cursor-pointer">
                     <input type="checkbox" ${c.is_distraction ? 'checked' : ''} onchange="updateCatFlag(${c.id},'is_distraction',this.checked)" class="accent-red-500 w-3.5 h-3.5"> Distraction
                 </label>
-                <label class="flex items-center gap-1.5 text-[10px] text-slate-400 cursor-pointer">
+                <label class="flex items-center gap-1.5 text-[11px] text-slate-400 cursor-pointer">
                     <input type="checkbox" ${c.is_billable ? 'checked' : ''} onchange="updateCatFlag(${c.id},'is_billable',this.checked)" class="accent-blue-500 w-3.5 h-3.5"> Billable
                 </label>
             </div>
@@ -547,8 +558,8 @@
         tbody.innerHTML = allClients.map(c => {
             const users = clientUsersMap[c.id] || [];
             const userBadges = users.length
-                ? users.map(u => `<span class="inline-block bg-slate-700/50 text-slate-300 text-[10px] px-2 py-0.5 rounded-full mr-1 mb-1">${u.name || u.email.split('@')[0]}</span>`).join('')
-                : '<span class="text-slate-600 text-[10px] italic">No users assigned</span>';
+                ? users.map(u => `<span class="inline-block bg-slate-700/50 text-slate-300 text-[11px] px-2 py-0.5 rounded-full mr-1 mb-1">${u.name || u.email.split('@')[0]}</span>`).join('')
+                : '<span class="text-slate-600 text-[11px] italic">No users assigned</span>';
             return `
             <tr class="hover:bg-slate-700/20 transition-colors">
                 <td class="px-5 py-3 font-semibold text-white">${c.name}</td>
@@ -556,7 +567,7 @@
                     <div class="flex flex-wrap items-center gap-0.5">
                         ${userBadges}
                         <button onclick="openAssignModal(${c.id}, '${c.name.replace(/'/g, "\\'")}')"
-                            class="inline-block text-amber-400 hover:text-amber-300 text-[10px] font-bold px-1.5 py-0.5 rounded-full border border-amber-500/30 hover:border-amber-400/50 transition-colors ml-1"
+                            class="inline-block text-amber-400 hover:text-amber-300 text-[11px] font-bold px-1.5 py-0.5 rounded-full border border-amber-500/30 hover:border-amber-400/50 transition-colors ml-1"
                             title="Assign users">+ Assign</button>
                     </div>
                 </td>
@@ -568,7 +579,7 @@
                 </td>
                 <td class="px-5 py-3 text-right">
                     <button onclick='editClient(${JSON.stringify(c).replace(/'/g, "&#39;")}'
-                        class="px-3 py-1 text-[10px] font-bold bg-slate-700 hover:bg-slate-600 text-slate-300 rounded-lg transition-colors">Edit</button>
+                        class="px-3 py-1 text-[11px] font-bold bg-slate-700 hover:bg-slate-600 text-slate-300 rounded-lg transition-colors">Edit</button>
                 </td>
             </tr>`;
         }).join('');
@@ -602,7 +613,7 @@
                     class="rounded border-slate-600 bg-slate-900 text-amber-500 focus:ring-amber-500 focus:ring-offset-0 w-3.5 h-3.5">
                 <div>
                     <div class="text-xs font-semibold text-slate-300">${u.name}</div>
-                    <div class="text-[10px] text-slate-500">${u.email}</div>
+                    <div class="text-[11px] text-slate-500">${u.email}</div>
                 </div>
             </label>`;
         }).join('');
@@ -653,26 +664,29 @@
     }
 
     async function saveClient() {
-        const id = document.getElementById('cl-id').value;
-        const name = document.getElementById('cl-name').value.trim();
-        const notes = document.getElementById('cl-notes').value.trim();
-        const zohoOrgId = document.getElementById('cl-zoho-org-id').value.trim();
-        if (!name) { showToast('Client name is required', 'error'); return; }
-        const payload = { name, notes, zoho_org_id: zohoOrgId };
-        if (id) payload.id = parseInt(id);
-        const res = await fetch('/api/clients', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(payload)
-        });
-        const data = await res.json();
-        if (res.ok && data.status === 'success') {
-            showToast(id ? 'Client updated' : 'Client added');
-            clearClientForm();
-            loadClients();
-        } else {
-            showToast(data.message || 'Error saving client', 'error');
-        }
+        const btn = event.target; btn.disabled = true; btn.textContent = 'Saving...';
+        try {
+            const id = document.getElementById('cl-id').value;
+            const name = document.getElementById('cl-name').value.trim();
+            const notes = document.getElementById('cl-notes').value.trim();
+            const zohoOrgId = document.getElementById('cl-zoho-org-id').value.trim();
+            if (!name) { showToast('Client name is required', 'error'); return; }
+            const payload = { name, notes, zoho_org_id: zohoOrgId };
+            if (id) payload.id = parseInt(id);
+            const res = await fetch('/api/clients', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+            const data = await res.json();
+            if (res.ok && data.status === 'success') {
+                showToast(id ? 'Client updated' : 'Client added');
+                clearClientForm();
+                loadClients();
+            } else {
+                showToast(data.message || 'Error saving client', 'error');
+            }
+        } finally { btn.disabled = false; btn.textContent = 'Save Client'; }
     }
 
     // ─── Agent Health ─────────────────────────────────────────────────────────────
@@ -706,10 +720,10 @@
                 <tr class="hover:bg-slate-700/20 transition-colors">
                     <td class="px-5 py-3">
                         <div class="font-semibold text-white text-sm">${a.name || a.email}</div>
-                        <div class="text-[10px] text-slate-500 font-mono">${a.email}</div>
+                        <div class="text-[11px] text-slate-500 font-mono">${a.email}</div>
                     </td>
                     <td class="px-5 py-3">
-                        <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-[10px] font-bold uppercase tracking-wider ${statusBadge[a.status]}">
+                        <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-[11px] font-bold uppercase tracking-wider ${statusBadge[a.status]}">
                             <span class="w-1.5 h-1.5 rounded-full ${statusDot[a.status]} ${a.status === 'online' ? 'animate-pulse' : ''}"></span>
                             ${a.status}
                         </span>
@@ -717,8 +731,8 @@
                     <td class="px-5 py-3 text-slate-400 text-xs">${timeAgo(a.seconds_ago)}</td>
                     <td class="px-5 py-3">
                         ${a.is_paused
-                            ? '<span class="text-[10px] font-bold text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded border border-amber-500/20">PAUSED</span>'
-                            : '<span class="text-[10px] font-bold text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20">ACTIVE</span>'}
+                            ? '<span class="text-[11px] font-bold text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded border border-amber-500/20">PAUSED</span>'
+                            : '<span class="text-[11px] font-bold text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20">ACTIVE</span>'}
                     </td>
                 </tr>
             `).join('');

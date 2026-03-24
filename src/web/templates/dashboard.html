@@ -5,7 +5,7 @@
     <h1 class="text-xl font-bold text-white tracking-tight">Today's Overview</h1>
     <div class="flex items-center gap-2 mt-1">
         <div class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></div>
-        <span class="text-[10px] font-bold text-emerald-400 uppercase tracking-wider">Live Tracking</span>
+        <span class="text-[11px] font-bold text-emerald-400 uppercase tracking-wider">Live Tracking</span>
     </div>
 </div>
 {% endblock %}
@@ -28,7 +28,7 @@
                     </svg>
                 </button>
                 <div id="day-label" onclick="openDatePicker()"
-                    class="px-3 text-[10px] font-bold text-slate-300 uppercase tracking-widest cursor-pointer hover:text-indigo-400 transition-colors flex items-center gap-1">
+                    class="px-3 text-[11px] font-bold text-slate-300 uppercase tracking-widest cursor-pointer hover:text-indigo-400 transition-colors flex items-center gap-1">
                     <span id="day-label-text">Today</span>
                     <svg class="w-3 h-3 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
@@ -47,11 +47,11 @@
             <div class="w-px h-6 bg-slate-700/50"></div>
             <div class="flex bg-slate-900/50 rounded-xl p-1">
                 <button id="toggle-day" onclick="setMode('day')"
-                    class="px-4 py-1.5 text-[10px] font-bold rounded-lg bg-indigo-600 text-white shadow-lg shadow-indigo-500/20 transition-all">Day</button>
+                    class="px-4 py-1.5 text-[11px] font-bold rounded-lg bg-indigo-600 text-white shadow-lg shadow-indigo-500/20 transition-all">Day</button>
                 <button id="toggle-week" onclick="setMode('week')"
-                    class="px-4 py-1.5 text-[10px] font-bold rounded-lg text-slate-500 hover:text-slate-300 transition-all">Week</button>
+                    class="px-4 py-1.5 text-[11px] font-bold rounded-lg text-slate-500 hover:text-slate-300 transition-all">Week</button>
                 <button id="toggle-month" onclick="setMode('month')"
-                    class="px-4 py-1.5 text-[10px] font-bold rounded-lg text-slate-500 hover:text-slate-300 transition-all">Month</button>
+                    class="px-4 py-1.5 text-[11px] font-bold rounded-lg text-slate-500 hover:text-slate-300 transition-all">Month</button>
             </div>
         </div>
     </div>
@@ -130,7 +130,7 @@
                     </div>
                     <div class="text-center">
                         <div class="text-xs font-bold text-slate-300">Focus</div>
-                        <div class="text-[10px] text-slate-500" id="score-focus-time">--</div>
+                        <div class="text-[11px] text-slate-500" id="score-focus-time">--</div>
                     </div>
                 </div>
 
@@ -144,7 +144,7 @@
                     </div>
                     <div class="text-center">
                         <div class="text-xs font-bold text-slate-300">Meetings</div>
-                        <div class="text-[10px] text-slate-500" id="score-meeting-time">--</div>
+                        <div class="text-[11px] text-slate-500" id="score-meeting-time">--</div>
                     </div>
                 </div>
 
@@ -158,7 +158,7 @@
                     </div>
                     <div class="text-center">
                         <div class="text-xs font-bold text-slate-300">Breaks</div>
-                        <div class="text-[10px] text-slate-500" id="score-break-time">--</div>
+                        <div class="text-[11px] text-slate-500" id="score-break-time">--</div>
                     </div>
                 </div>
             </div>
@@ -239,24 +239,24 @@
             <div class="flex items-center gap-4">
                 <div class="flex flex-col gap-1">
                     <select id="bulk-client-select"
-                        class="bg-slate-700 border border-slate-600 text-white text-[10px] rounded px-2 py-1 outline-none focus:border-indigo-500 w-32">
+                        class="bg-slate-700 border border-slate-600 text-white text-[11px] rounded px-2 py-1 outline-none focus:border-indigo-500 w-32">
                         <option value="">Select Client...</option>
                         <!-- Populated by JS -->
                     </select>
                     <button onclick="assignBulk()"
-                        class="bg-indigo-600 hover:bg-indigo-500 text-white text-[10px] font-bold py-1 px-2 rounded transition-colors text-center">
+                        class="bg-indigo-600 hover:bg-indigo-500 text-white text-[11px] font-bold py-1 px-2 rounded transition-colors text-center">
                         Assign Client
                     </button>
                 </div>
                 <div class="w-px h-10 bg-slate-700"></div>
                 <div class="flex flex-col gap-1">
                     <select id="bulk-category-select"
-                        class="bg-slate-700 border border-slate-600 text-white text-[10px] rounded px-2 py-1 outline-none focus:border-indigo-500 w-32">
+                        class="bg-slate-700 border border-slate-600 text-white text-[11px] rounded px-2 py-1 outline-none focus:border-indigo-500 w-32">
                         <option value="">Select Category...</option>
                         <!-- Populated by JS -->
                     </select>
                     <button onclick="assignCategoryBulk()"
-                        class="bg-emerald-600 hover:bg-emerald-500 text-white text-[10px] font-bold py-1 px-2 rounded transition-colors text-center">
+                        class="bg-emerald-600 hover:bg-emerald-500 text-white text-[11px] font-bold py-1 px-2 rounded transition-colors text-center">
                         Assign Category
                     </button>
                 </div>
@@ -337,8 +337,8 @@
 
     function setMode(mode) {
         viewMode = mode;
-        const active   = "px-4 py-1.5 text-[10px] font-bold rounded-lg bg-indigo-600 text-white shadow-lg shadow-indigo-500/20 transition-all";
-        const inactive = "px-4 py-1.5 text-[10px] font-bold rounded-lg text-slate-500 hover:text-slate-300 transition-all";
+        const active   = "px-4 py-1.5 text-[11px] font-bold rounded-lg bg-indigo-600 text-white shadow-lg shadow-indigo-500/20 transition-all";
+        const inactive = "px-4 py-1.5 text-[11px] font-bold rounded-lg text-slate-500 hover:text-slate-300 transition-all";
         document.getElementById('toggle-day').className   = mode === 'day'   ? active : inactive;
         document.getElementById('toggle-week').className  = mode === 'week'  ? active : inactive;
         document.getElementById('toggle-month').className = mode === 'month' ? active : inactive;
@@ -747,12 +747,12 @@
             const timeStr = act.timestamp.split(' ')[1].substring(0, 5); // HH:MM
             const row = `
                     <tr class="hover:bg-slate-800/30 transition-colors">
-                        <td class="px-2 py-2 whitespace-nowrap text-slate-500 text-[10px]">${timeStr}</td>
+                        <td class="px-2 py-2 whitespace-nowrap text-slate-500 text-[11px]">${timeStr}</td>
                         <td class="px-2 py-2 whitespace-nowrap text-slate-300 font-bold text-[11px]">${act.app_name}</td>
-                        <td class="px-2 py-2 truncate max-w-[180px] text-[10px] text-slate-400" title="${act.window_title}${act.url_or_filename ? '\n' + act.url_or_filename : ''}">
+                        <td class="px-2 py-2 truncate max-w-[180px] text-[11px] text-slate-400" title="${act.window_title}${act.url_or_filename ? '\n' + act.url_or_filename : ''}">
                             ${act.window_title || ''}${act.url_or_filename ? '<br><span class=&quot;text-slate-500&quot;>' + (act.url_or_filename.startsWith('http') ? '🔗 ' : '📄 ') + act.url_or_filename + '</span>' : ''}
                         </td>
-                        <td class="px-2 py-2 whitespace-nowrap text-right text-[10px] text-slate-400">${formatTime(act.duration)}</td>
+                        <td class="px-2 py-2 whitespace-nowrap text-right text-[11px] text-slate-400">${formatTime(act.duration)}</td>
                     </tr>
                 `;
             tbody.innerHTML += row;
@@ -925,7 +925,7 @@
                                     <input type="checkbox" class="mt-1 activity-checkbox w-5 h-5 bg-slate-700 border-slate-500 rounded text-indigo-500 focus:ring-indigo-500 pointer-events-auto accent-indigo-500" value="${ids}">
                                     <div class="min-w-0">
                                         <div class="text-sm text-slate-300 truncate font-medium" title="${title}">${title}</div>
-                                        <div class="text-[10px] text-slate-500 mt-1 flex gap-2">
+                                        <div class="text-[11px] text-slate-500 mt-1 flex gap-2">
                                         <span>${titleData.activities.length} logs</span>
                                         <span>•</span>
                                         <span class="text-indigo-400 max-w-[150px] truncate">${titleData.activities[0].client}</span>

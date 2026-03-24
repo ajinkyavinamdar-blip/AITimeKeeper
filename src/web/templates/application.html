@@ -82,6 +82,12 @@
         ::-webkit-scrollbar-thumb:hover {
             background: #475569;
         }
+
+        /* Disabled button state */
+        button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
     </style>
 </head>
 
@@ -221,8 +227,8 @@
                         <div class="text-xs font-bold text-slate-500 uppercase tracking-wider" id="current-time"></div>
                         <!-- Global Controls -->
                         <div class="flex items-center gap-2 bg-slate-800/20 rounded-xl p-1 border border-slate-700/50">
-                            <button onclick="globalControl('resume')" title="Resume Tracking"
-                                class="p-2 text-slate-500 hover:text-emerald-400 hover:bg-slate-800 rounded-lg transition-all">
+                            <button onclick="globalControl('resume')" title="Resume Tracking" aria-label="Resume tracking"
+                                class="p-2 text-slate-500 hover:text-emerald-400 hover:bg-slate-800 rounded-lg transition-all min-w-[44px] min-h-[44px] flex items-center justify-center">
                                 <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20"
                                     fill="currentColor">
                                     <path fill-rule="evenodd"
@@ -230,8 +236,8 @@
                                         clip-rule="evenodd" />
                                 </svg>
                             </button>
-                            <button onclick="globalControl('pause')" title="Pause Tracking"
-                                class="p-2 text-slate-500 hover:text-amber-400 hover:bg-slate-800 rounded-lg transition-all">
+                            <button onclick="globalControl('pause')" title="Pause Tracking" aria-label="Pause tracking"
+                                class="p-2 text-slate-500 hover:text-amber-400 hover:bg-slate-800 rounded-lg transition-all min-w-[44px] min-h-[44px] flex items-center justify-center">
                                 <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20"
                                     fill="currentColor">
                                     <path fill-rule="evenodd"
@@ -240,7 +246,7 @@
                                 </svg>
                             </button>
                             <div class="h-4 w-px bg-slate-700/50 mx-1"></div>
-                            <span class="text-[10px] font-bold text-slate-500 px-3 uppercase tracking-widest"
+                            <span class="text-[11px] font-bold text-slate-500 px-3 uppercase tracking-widest"
                                 id="global-status">RUNNING</span>
                         </div>
                     </div>

@@ -75,7 +75,7 @@
                         </div>
                     </div>
                     <span
-                        class="text-[10px] font-bold text-slate-400 uppercase tracking-widest group-hover:text-slate-300">Summarize</span>
+                        class="text-[11px] font-bold text-slate-400 uppercase tracking-widest group-hover:text-slate-300">Summarize</span>
                 </label>
             </div>
         </div>
@@ -105,7 +105,7 @@
                     Update Logs
                 </button>
                 <button onclick="clearSelection()"
-                    class="text-indigo-200 hover:text-white text-[10px] font-bold uppercase tracking-widest px-2">Cancel</button>
+                    class="text-indigo-200 hover:text-white text-[11px] font-bold uppercase tracking-widest px-2">Cancel</button>
             </div>
         </div>
     </div>
@@ -114,7 +114,7 @@
     <div class="bg-slate-800/50 rounded-2xl border border-slate-700/50 backdrop-blur-sm overflow-hidden">
         <div class="overflow-x-auto">
             <table class="w-full text-left text-sm text-slate-300">
-                <thead class="bg-slate-800/30 text-[10px] uppercase font-bold text-slate-500 tracking-wider">
+                <thead class="bg-slate-800/30 text-[11px] uppercase font-bold text-slate-500 tracking-wider">
                     <tr>
                         <th class="px-6 py-4 w-10">
                             <input type="checkbox" id="select-all" onclick="toggleSelectAll()"
@@ -343,7 +343,7 @@
                 const duration = act.total_duration || act.duration;
                 const userEmail = act.user_email || '';
                 const userCell = showUserCol
-                    ? `<td class="px-6 py-4 text-[10px] text-slate-500 max-w-[120px] truncate" title="${userEmail}">${userEmail.split('@')[0]}</td>`
+                    ? `<td class="px-6 py-4 text-[11px] text-slate-500 max-w-[120px] truncate" title="${userEmail}">${userEmail.split('@')[0]}</td>`
                     : '';
 
                 const row = document.createElement('tr');
@@ -366,15 +366,15 @@
                     </td>
                     <td class="px-6 py-4 max-w-xs">
                         <div class="text-slate-300 text-xs truncate" title="${act.window_title}">${act.window_title || ''}</div>
-                        ${act.url_or_filename ? '<div class="text-slate-500 text-[10px] truncate leading-tight mt-0.5" title="' + act.url_or_filename + '">' + (act.url_or_filename.startsWith('http') ? '🔗 ' : '📄 ') + act.url_or_filename + '</div>' : ''}
+                        ${act.url_or_filename ? '<div class="text-slate-500 text-[11px] truncate leading-tight mt-0.5" title="' + act.url_or_filename + '">' + (act.url_or_filename.startsWith('http') ? '🔗 ' : '📄 ') + act.url_or_filename + '</div>' : ''}
                     </td>
                     <td class="px-6 py-4 whitespace-nowrap">
-                        <span class="px-2 py-1 rounded-lg text-[10px] font-bold uppercase tracking-wider bg-slate-700/30 text-slate-400 border border-slate-700/50">
+                        <span class="px-2 py-1 rounded-lg text-[11px] font-bold uppercase tracking-wider bg-slate-700/30 text-slate-400 border border-slate-700/50">
                             ${act.client || 'Unassigned'}
                         </span>
                     </td>
                     <td class="px-6 py-4 whitespace-nowrap">
-                        <span class="px-2 py-1 rounded-lg text-[10px] font-bold uppercase tracking-wider text-white" style="background-color: ${color}20; color: ${color}; border: 1px solid ${color}40">
+                        <span class="px-2 py-1 rounded-lg text-[11px] font-bold uppercase tracking-wider text-white" style="background-color: ${color}20; color: ${color}; border: 1px solid ${color}40">
                             ${cat ? cat.name : 'Uncategorized'}
                         </span>
                     </td>
