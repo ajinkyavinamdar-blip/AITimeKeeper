@@ -104,7 +104,7 @@
     <div class="flex h-screen overflow-hidden">
         <!-- Sidebar -->
         <div
-            class="w-20 lg:w-64 bg-slate-950 text-slate-400 flex-shrink-0 border-r border-slate-800 transition-all duration-300 relative">
+            class="w-16 lg:w-56 xl:w-64 bg-slate-950 text-slate-400 flex-shrink-0 border-r border-slate-800 transition-all duration-300 relative">
             <div class="p-4 lg:p-5 flex items-center justify-center lg:justify-start">
                 <h1 class="text-xl font-bold flex items-center gap-2 text-white overflow-hidden whitespace-nowrap">
                     <svg class="w-10 h-9 shrink-0" viewBox="0 0 44 32" fill="none">
@@ -231,7 +231,7 @@
                     </div>
 
                     <div class="flex items-center gap-4">
-                        <div class="text-xs font-bold text-white mr-4">Welcome, {{ user.name if user else 'Guest' }}
+                        <div class="text-xs font-bold text-white mr-4 hidden xl:block">Welcome, {{ user.name if user else 'Guest' }}
                         </div>
                         <div class="text-xs font-bold text-slate-500 uppercase tracking-wider" id="current-time"></div>
                         <!-- Global Controls -->

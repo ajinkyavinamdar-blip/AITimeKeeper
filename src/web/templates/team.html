@@ -581,8 +581,27 @@
 
     // ─── Timeline Chart ───────────────────────────────────────────────────────────
     function renderTimeline(timelineData) {
-        const ctx = document.getElementById('teamTimelineChart').getContext('2d');
+        const canvas = document.getElementById('teamTimelineChart');
+        const ctx = canvas.getContext('2d');
         if (teamTimelineChartInst) teamTimelineChartInst.destroy();
+
+        // Empty state
+        const hasData = timelineData && timelineData.some(d => (d.focus || 0) + (d.comms || 0) > 0);
+        let emptyEl = canvas.parentElement.querySelector('.timeline-empty');
+        if (!hasData) {
+            if (!emptyEl) {
+                emptyEl = document.createElement('div');
+                emptyEl.className = 'timeline-empty absolute inset-0 flex items-center justify-center text-slate-400 text-xs';
+                emptyEl.textContent = 'No activity data for this period';
+                canvas.parentElement.style.position = 'relative';
+                canvas.parentElement.appendChild(emptyEl);
+            }
+            emptyEl.classList.remove('hidden');
+            canvas.style.opacity = '0.15';
+        } else {
+            if (emptyEl) emptyEl.classList.add('hidden');
+            canvas.style.opacity = '1';
+        }
 
         const labels = timelineData.map(d => d.hour);
         const focusData = timelineData.map(d => d.focus);

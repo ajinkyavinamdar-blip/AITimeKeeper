@@ -14,7 +14,7 @@
 <div class="space-y-4 pb-6">
 
     <!-- Tab Bar -->
-    <div class="flex items-center gap-1 bg-slate-800/50 rounded-2xl p-1.5 border border-slate-700/50 w-fit">
+    <div class="flex items-center gap-1 bg-slate-800/50 rounded-2xl p-1.5 border border-slate-700/50 w-fit overflow-x-auto whitespace-nowrap">
         <button onclick="switchTab('users')" id="tab-users"
             class="tab-btn px-5 py-2 text-xs font-bold rounded-xl bg-amber-600 text-white shadow-lg transition-all flex items-center gap-1.5">
             <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
@@ -51,7 +51,7 @@
     <!-- ===== USERS TAB ===== -->
     <div id="panel-users" class="tab-panel space-y-4">
         <!-- Add User Form -->
-        <div class="bg-slate-800/50 rounded-2xl p-6 border border-slate-700/50 backdrop-blur-sm">
+        <div class="bg-slate-800/50 rounded-2xl p-4 xl:p-5border border-slate-700/50 backdrop-blur-sm">
             <h2 class="text-sm font-bold text-amber-400 uppercase tracking-wider mb-4">Add / Edit User</h2>
             <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
                 <div>
@@ -122,7 +122,7 @@
 
     <!-- ===== SETTINGS TAB ===== -->
     <div id="panel-settings" class="tab-panel hidden">
-        <div class="bg-slate-800/50 rounded-2xl p-6 border border-slate-700/50 backdrop-blur-sm">
+        <div class="bg-slate-800/50 rounded-2xl p-4 xl:p-5border border-slate-700/50 backdrop-blur-sm">
             <h2 class="text-sm font-bold text-amber-400 uppercase tracking-wider mb-6">Organisation Settings</h2>
             <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>

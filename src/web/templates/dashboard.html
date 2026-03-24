@@ -84,8 +84,8 @@
 
                 <div class="flex gap-2">
                     <button id="tracking-toggle-btn" onclick="toggleTracking()"
-                        class="w-full bg-red-600 hover:bg-red-500 text-white text-xs font-bold py-1.5 px-3 rounded transition-colors">
-                        Disable Tracking
+                        class="w-full bg-slate-600 hover:bg-slate-500 text-white text-xs font-bold py-1.5 px-3 rounded transition-colors">
+                        Pause Tracking
                     </button>
                 </div>
             </div>
@@ -459,8 +459,27 @@
     function initTimelineChart(timelineData) {
         const sub = document.getElementById('timeline-subtitle');
         if (sub) sub.innerText = viewMode === 'day' ? 'Hourly Focus & Comms' : viewMode === 'week' ? 'Daily Focus & Comms' : 'Daily Focus & Comms';
-        const ctx = document.getElementById('timelineChart').getContext('2d');
+        const canvas = document.getElementById('timelineChart');
+        const ctx = canvas.getContext('2d');
         if (timelineChartInstance) timelineChartInstance.destroy();
+
+        // Empty state
+        const hasData = timelineData && timelineData.some(d => (d.focus || 0) + (d.comms || 0) > 0);
+        let emptyEl = canvas.parentElement.querySelector('.timeline-empty');
+        if (!hasData) {
+            if (!emptyEl) {
+                emptyEl = document.createElement('div');
+                emptyEl.className = 'timeline-empty absolute inset-0 flex items-center justify-center text-slate-400 text-xs';
+                emptyEl.textContent = 'No activity data for this period';
+                canvas.parentElement.style.position = 'relative';
+                canvas.parentElement.appendChild(emptyEl);
+            }
+            emptyEl.classList.remove('hidden');
+            canvas.style.opacity = '0.15';
+        } else {
+            if (emptyEl) emptyEl.classList.add('hidden');
+            canvas.style.opacity = '1';
+        }
 
         const labels = timelineData.map(d => d.hour);
         const focusData = timelineData.map(d => d.focus);
