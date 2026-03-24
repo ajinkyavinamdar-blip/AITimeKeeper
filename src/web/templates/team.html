@@ -552,7 +552,8 @@
     }
 
     async function refreshTimeline(memberEmails) {
-        const params = new URLSearchParams({ date: currentDate });
+        const dateStr = getCurrentDateStr();
+        const params = new URLSearchParams({ date: dateStr });
         if (memberEmails && memberEmails.size > 0) {
             params.set('members', [...memberEmails].join(','));
         }
