@@ -6,6 +6,7 @@ from ..database import (
     get_todays_activities, get_summary_stats, get_weekly_summary_stats, get_application_stats, get_application_activities,
     get_clients, add_client, update_client, get_mappings, add_mapping, get_unassigned_summary,
     get_client_users, set_client_users, get_clients_for_user,
+    get_holidays, add_holiday, delete_holiday,
     get_categories, get_category_mappings, add_category_mapping,
     get_work_blocks, get_overtime_stats,
     # User management
@@ -935,6 +936,29 @@ def api_admin_settings():
             update_org_setting(key, str(value))
         return jsonify({'status': 'success'})
     return jsonify(get_org_settings())
+
+@app.route('/api/admin/holidays', methods=['GET', 'POST'])
+def api_admin_holidays():
+    guard = require_role('admin')
+    if guard: return guard
+    if request.method == 'POST':
+        data = request.json
+        date_str = data.get('date')
+        name = data.get('name', '').strip()
+        if not date_str or not name:
+            return jsonify({'error': 'date and name required'}), 400
+        ok, msg = add_holiday(date_str, name)
+        if ok:
+            return jsonify({'status': 'success'})
+        return jsonify({'error': msg}), 400
+    return jsonify(get_holidays())
+
+@app.route('/api/admin/holidays/<int:holiday_id>', methods=['DELETE'])
+def api_admin_holiday_delete(holiday_id):
+    guard = require_role('admin')
+    if guard: return guard
+    delete_holiday(holiday_id)
+    return jsonify({'status': 'success'})
 
 @app.route('/api/admin/categories', methods=['GET', 'POST'])
 def api_admin_categories():

@@ -204,6 +204,17 @@ def init_db():
         c.execute("INSERT INTO org_settings (key, value) VALUES ('default_currency', 'INR') ON CONFLICT (key) DO NOTHING")
         c.execute("INSERT INTO org_settings (key, value) VALUES ('fiscal_year_start', '04') ON CONFLICT (key) DO NOTHING")
         c.execute("INSERT INTO org_settings (key, value) VALUES ('company_name', 'CFOLogic') ON CONFLICT (key) DO NOTHING")
+        c.execute("INSERT INTO org_settings (key, value) VALUES ('weekly_offs', '0,6') ON CONFLICT (key) DO NOTHING")
+
+        # Holidays table
+        c.execute('''
+            CREATE TABLE IF NOT EXISTS holidays (
+                id SERIAL PRIMARY KEY,
+                date DATE NOT NULL UNIQUE,
+                name TEXT NOT NULL,
+                created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+            )
+        ''')
 
         # Seed admin user
         c.execute("INSERT INTO users (email, name, role) VALUES (%s, %s, 'admin') ON CONFLICT (email) DO NOTHING",
@@ -1328,6 +1339,40 @@ def update_org_setting(key, value):
         c = conn.cursor()
         c.execute("INSERT INTO org_settings (key, value) VALUES (%s, %s) ON CONFLICT(key) DO UPDATE SET value = EXCLUDED.value", (key, value))
         conn.commit()
+    finally:
+        release_db_connection(conn)
+
+# ── Holidays ─────────────────────────────────────────────────────────────────
+
+def get_holidays():
+    conn = get_db_connection()
+    try:
+        c = conn.cursor(cursor_factory=RealDictCursor)
+        c.execute("SELECT id, date, name FROM holidays ORDER BY date")
+        return [dict(r) for r in c.fetchall()]
+    finally:
+        release_db_connection(conn)
+
+def add_holiday(date_str, name):
+    conn = get_db_connection()
+    try:
+        c = conn.cursor()
+        c.execute("INSERT INTO holidays (date, name) VALUES (%s, %s) ON CONFLICT (date) DO UPDATE SET name = EXCLUDED.name", (date_str, name))
+        conn.commit()
+        return True, 'Holiday added'
+    except Exception as e:
+        conn.rollback()
+        return False, str(e)
+    finally:
+        release_db_connection(conn)
+
+def delete_holiday(holiday_id):
+    conn = get_db_connection()
+    try:
+        c = conn.cursor()
+        c.execute("DELETE FROM holidays WHERE id = %s", (holiday_id,))
+        conn.commit()
+        return True
     finally:
         release_db_connection(conn)
 

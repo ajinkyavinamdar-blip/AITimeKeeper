@@ -366,8 +366,8 @@
             isTracking = (trackingStatus === 'running');
             const trackBtn = document.getElementById('tracking-toggle-btn');
             if (isTracking) {
-                trackBtn.innerText = 'Disable Tracking';
-                trackBtn.className = "w-full bg-red-600 hover:bg-red-500 text-white text-xs font-bold py-2 px-4 rounded transition-colors";
+                trackBtn.innerText = 'Pause Tracking';
+                trackBtn.className = "w-full bg-slate-600 hover:bg-slate-500 text-white text-xs font-bold py-2 px-4 rounded transition-colors";
             } else {
                 trackBtn.innerText = 'Resume Tracking';
                 trackBtn.className = "w-full bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold py-2 px-4 rounded transition-colors";
@@ -649,9 +649,9 @@
             const breakBtn = document.getElementById('break-toggle-btn');
 
             if (trackingStatus === 'running') {
-                // Agent is active — show Disable + Start Break
-                trackBtn.innerText = 'Disable Tracking';
-                trackBtn.className = "w-full bg-red-600 hover:bg-red-500 text-white text-xs font-bold py-2 px-4 rounded transition-colors";
+                // Agent is active — show Pause + Start Break
+                trackBtn.innerText = 'Pause Tracking';
+                trackBtn.className = "w-full bg-slate-600 hover:bg-slate-500 text-white text-xs font-bold py-2 px-4 rounded transition-colors";
                 trackBtn.disabled = false;
                 breakBtn.innerText = 'Start Break';
                 breakBtn.className = "w-full bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold py-2 px-4 rounded transition-colors";
@@ -666,8 +666,8 @@
                 breakBtn.disabled = false;
             } else if (trackingStatus === 'break') {
                 // On a break
-                trackBtn.innerText = 'Disable Tracking';
-                trackBtn.className = "w-full bg-red-600 hover:bg-red-500 text-white text-xs font-bold py-2 px-4 rounded transition-colors";
+                trackBtn.innerText = 'Pause Tracking';
+                trackBtn.className = "w-full bg-slate-600 hover:bg-slate-500 text-white text-xs font-bold py-2 px-4 rounded transition-colors";
                 trackBtn.disabled = false;
                 breakBtn.innerText = 'End Break';
                 breakBtn.className = "w-full bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold py-2 px-4 rounded transition-colors";

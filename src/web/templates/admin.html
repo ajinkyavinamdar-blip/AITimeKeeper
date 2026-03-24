@@ -121,36 +121,33 @@
     </div>
 
     <!-- ===== SETTINGS TAB ===== -->
-    <div id="panel-settings" class="tab-panel hidden">
-        <div class="bg-slate-800/50 rounded-2xl p-4 xl:p-5border border-slate-700/50 backdrop-blur-sm">
-            <h2 class="text-sm font-bold text-amber-400 uppercase tracking-wider mb-6">Organisation Settings</h2>
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+    <div id="panel-settings" class="tab-panel hidden space-y-4">
+        <!-- General Settings -->
+        <div class="bg-slate-800/50 rounded-2xl p-4 xl:p-5 border border-slate-700/50 backdrop-blur-sm">
+            <h2 class="text-sm font-bold text-amber-400 uppercase tracking-wider mb-4">General</h2>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                    <label class="text-[11px] text-slate-400 uppercase tracking-wider font-semibold">Company
-                        Name</label>
+                    <label class="text-[11px] text-slate-400 uppercase tracking-wider font-semibold">Company Name</label>
                     <input id="s-company_name" type="text"
                         class="mt-1 w-full bg-slate-900/50 border border-slate-700 text-white text-sm rounded-xl px-4 py-2.5 outline-none focus:border-amber-500 transition-colors">
                 </div>
                 <div>
-                    <label class="text-[11px] text-slate-400 uppercase tracking-wider font-semibold">Default
-                        Currency</label>
+                    <label class="text-[11px] text-slate-400 uppercase tracking-wider font-semibold">Default Currency</label>
                     <select id="s-default_currency"
                         class="mt-1 w-full bg-slate-900/50 border border-slate-700 text-white text-sm rounded-xl px-4 py-2.5 outline-none focus:border-amber-500 transition-colors">
-                        <option value="INR">INR ₹</option>
+                        <option value="INR">INR &#8377;</option>
                         <option value="USD">USD $</option>
-                        <option value="EUR">EUR €</option>
-                        <option value="GBP">GBP £</option>
+                        <option value="EUR">EUR &euro;</option>
+                        <option value="GBP">GBP &pound;</option>
                     </select>
                 </div>
                 <div>
-                    <label class="text-[11px] text-slate-400 uppercase tracking-wider font-semibold">Daily Work Hours
-                        Goal</label>
+                    <label class="text-[11px] text-slate-400 uppercase tracking-wider font-semibold">Daily Work Hours Goal</label>
                     <input id="s-work_hours_goal" type="number" min="1" max="24"
                         class="mt-1 w-full bg-slate-900/50 border border-slate-700 text-white text-sm rounded-xl px-4 py-2.5 outline-none focus:border-amber-500 transition-colors">
                 </div>
                 <div>
-                    <label class="text-[11px] text-slate-400 uppercase tracking-wider font-semibold">Fiscal Year Start
-                        Month</label>
+                    <label class="text-[11px] text-slate-400 uppercase tracking-wider font-semibold">Fiscal Year Start Month</label>
                     <select id="s-fiscal_year_start"
                         class="mt-1 w-full bg-slate-900/50 border border-slate-700 text-white text-sm rounded-xl px-4 py-2.5 outline-none focus:border-amber-500 transition-colors">
                         <option value="01">January</option>
@@ -160,12 +157,64 @@
                     </select>
                 </div>
             </div>
-            <div class="mt-6 flex items-center gap-4">
+            <div class="mt-4 flex items-center gap-4">
                 <button onclick="saveSettings()"
                     class="px-6 py-2 bg-amber-600 hover:bg-amber-500 text-white text-xs font-bold rounded-xl transition-colors shadow-lg shadow-amber-500/20">
                     Save Settings
                 </button>
                 <p class="text-xs text-slate-400">Changes take effect immediately org-wide.</p>
+            </div>
+        </div>
+
+        <!-- Weekly Offs -->
+        <div class="bg-slate-800/50 rounded-2xl p-4 xl:p-5 border border-slate-700/50 backdrop-blur-sm">
+            <h2 class="text-sm font-bold text-amber-400 uppercase tracking-wider mb-2">Weekly Offs</h2>
+            <p class="text-xs text-slate-400 mb-4">Days when tracking is not expected. These won't count towards weekly/monthly goals.</p>
+            <div class="flex flex-wrap gap-2" id="weekly-offs-grid">
+                <label class="flex items-center gap-2 bg-slate-900/50 border border-slate-700 rounded-xl px-4 py-2.5 cursor-pointer hover:border-amber-500/50 transition-colors select-none" data-day="0">
+                    <input type="checkbox" class="weekly-off-cb accent-amber-500 w-3.5 h-3.5" value="0"> <span class="text-sm text-slate-300">Sunday</span>
+                </label>
+                <label class="flex items-center gap-2 bg-slate-900/50 border border-slate-700 rounded-xl px-4 py-2.5 cursor-pointer hover:border-amber-500/50 transition-colors select-none" data-day="1">
+                    <input type="checkbox" class="weekly-off-cb accent-amber-500 w-3.5 h-3.5" value="1"> <span class="text-sm text-slate-300">Monday</span>
+                </label>
+                <label class="flex items-center gap-2 bg-slate-900/50 border border-slate-700 rounded-xl px-4 py-2.5 cursor-pointer hover:border-amber-500/50 transition-colors select-none" data-day="2">
+                    <input type="checkbox" class="weekly-off-cb accent-amber-500 w-3.5 h-3.5" value="2"> <span class="text-sm text-slate-300">Tuesday</span>
+                </label>
+                <label class="flex items-center gap-2 bg-slate-900/50 border border-slate-700 rounded-xl px-4 py-2.5 cursor-pointer hover:border-amber-500/50 transition-colors select-none" data-day="3">
+                    <input type="checkbox" class="weekly-off-cb accent-amber-500 w-3.5 h-3.5" value="3"> <span class="text-sm text-slate-300">Wednesday</span>
+                </label>
+                <label class="flex items-center gap-2 bg-slate-900/50 border border-slate-700 rounded-xl px-4 py-2.5 cursor-pointer hover:border-amber-500/50 transition-colors select-none" data-day="4">
+                    <input type="checkbox" class="weekly-off-cb accent-amber-500 w-3.5 h-3.5" value="4"> <span class="text-sm text-slate-300">Thursday</span>
+                </label>
+                <label class="flex items-center gap-2 bg-slate-900/50 border border-slate-700 rounded-xl px-4 py-2.5 cursor-pointer hover:border-amber-500/50 transition-colors select-none" data-day="5">
+                    <input type="checkbox" class="weekly-off-cb accent-amber-500 w-3.5 h-3.5" value="5"> <span class="text-sm text-slate-300">Friday</span>
+                </label>
+                <label class="flex items-center gap-2 bg-slate-900/50 border border-slate-700 rounded-xl px-4 py-2.5 cursor-pointer hover:border-amber-500/50 transition-colors select-none" data-day="6">
+                    <input type="checkbox" class="weekly-off-cb accent-amber-500 w-3.5 h-3.5" value="6"> <span class="text-sm text-slate-300">Saturday</span>
+                </label>
+            </div>
+            <button onclick="saveWeeklyOffs()" class="mt-4 px-5 py-2 bg-amber-600 hover:bg-amber-500 text-white text-xs font-bold rounded-xl transition-colors">Save Weekly Offs</button>
+        </div>
+
+        <!-- Holidays -->
+        <div class="bg-slate-800/50 rounded-2xl p-4 xl:p-5 border border-slate-700/50 backdrop-blur-sm">
+            <h2 class="text-sm font-bold text-amber-400 uppercase tracking-wider mb-2">Holidays</h2>
+            <p class="text-xs text-slate-400 mb-4">Mark specific dates as holidays. These won't count towards monthly goals.</p>
+            <div class="flex flex-wrap gap-3 items-center mb-4">
+                <div>
+                    <label class="text-[11px] text-slate-400 uppercase tracking-wider font-semibold">Date</label>
+                    <input id="h-date" type="date"
+                        class="mt-1 bg-slate-900/50 border border-slate-700 text-white text-sm rounded-xl px-4 py-2 outline-none focus:border-amber-500 transition-colors">
+                </div>
+                <div>
+                    <label class="text-[11px] text-slate-400 uppercase tracking-wider font-semibold">Name</label>
+                    <input id="h-name" type="text" placeholder="e.g. Diwali"
+                        class="mt-1 w-48 bg-slate-900/50 border border-slate-700 text-white text-sm rounded-xl px-4 py-2 outline-none focus:border-amber-500 transition-colors">
+                </div>
+                <button onclick="addHoliday()" class="mt-5 px-5 py-2 bg-amber-600 hover:bg-amber-500 text-white text-xs font-bold rounded-xl transition-colors">Add Holiday</button>
+            </div>
+            <div id="holidays-list" class="space-y-1">
+                <div class="text-center text-slate-400 text-xs py-4">Loading holidays...</div>
             </div>
         </div>
     </div>
@@ -175,26 +224,28 @@
         <!-- Add Category -->
         <div class="bg-slate-800/50 rounded-2xl p-5 border border-slate-700/50 backdrop-blur-sm">
             <h2 class="text-sm font-bold text-amber-400 uppercase tracking-wider mb-4">Add New Category</h2>
-            <div class="flex flex-wrap gap-3 items-end">
+            <div class="flex flex-wrap gap-3 items-center">
                 <div>
                     <label class="text-[11px] text-slate-400 uppercase tracking-wider font-semibold">Name</label>
                     <input id="c-name" type="text" placeholder="Category name"
-                        class="mt-1 w-40 bg-slate-900/50 border border-slate-700 text-white text-sm rounded-xl px-4 py-2 outline-none focus:border-amber-500 transition-colors">
+                        class="mt-1 w-44 bg-slate-900/50 border border-slate-700 text-white text-sm rounded-xl px-4 py-2 outline-none focus:border-amber-500 transition-colors">
                 </div>
                 <div>
                     <label class="text-[11px] text-slate-400 uppercase tracking-wider font-semibold">Color</label>
                     <input id="c-color" type="color" value="#8B5CF6"
-                        class="mt-1 h-10 w-16 bg-slate-900/50 border border-slate-700 rounded-xl px-1 cursor-pointer">
+                        class="mt-1 h-[38px] w-[38px] bg-transparent border border-slate-700 rounded-lg cursor-pointer p-0.5">
                 </div>
-                <label class="flex items-center gap-2 text-xs text-slate-300 cursor-pointer select-none">
-                    <input type="checkbox" id="c-is_focus" class="accent-amber-500 w-4 h-4"> Focus
-                </label>
-                <label class="flex items-center gap-2 text-xs text-slate-300 cursor-pointer select-none">
-                    <input type="checkbox" id="c-is_distraction" class="accent-red-500 w-4 h-4"> Distraction
-                </label>
-                <label class="flex items-center gap-2 text-xs text-slate-300 cursor-pointer select-none">
-                    <input type="checkbox" id="c-is_billable" checked class="accent-emerald-500 w-4 h-4"> Billable
-                </label>
+                <div class="flex items-center gap-4 ml-1">
+                    <label class="flex items-center gap-1.5 text-xs text-slate-300 cursor-pointer select-none">
+                        <input type="checkbox" id="c-is_focus" class="accent-emerald-500 w-3.5 h-3.5 rounded"> Focus
+                    </label>
+                    <label class="flex items-center gap-1.5 text-xs text-slate-300 cursor-pointer select-none">
+                        <input type="checkbox" id="c-is_distraction" class="accent-red-500 w-3.5 h-3.5 rounded"> Distraction
+                    </label>
+                    <label class="flex items-center gap-1.5 text-xs text-slate-300 cursor-pointer select-none">
+                        <input type="checkbox" id="c-is_billable" checked class="accent-emerald-500 w-3.5 h-3.5 rounded"> Billable
+                    </label>
+                </div>
                 <button onclick="addCategory()"
                     class="px-5 py-2 bg-amber-600 hover:bg-amber-500 text-white text-xs font-bold rounded-xl transition-colors">
                     + Add Category
@@ -463,6 +514,84 @@
         } finally { btn.disabled = false; btn.textContent = 'Save Settings'; }
     }
 
+    // ─── Weekly Offs ────────────────────────────────────────────────────────────
+    async function loadWeeklyOffs() {
+        const res = await fetch('/api/admin/settings');
+        const data = await res.json();
+        const offs = (data.weekly_offs || '').split(',').map(s => s.trim()).filter(Boolean);
+        document.querySelectorAll('.weekly-off-cb').forEach(cb => {
+            cb.checked = offs.includes(cb.value);
+        });
+    }
+
+    async function saveWeeklyOffs() {
+        const btn = event.target; btn.disabled = true; btn.textContent = 'Saving...';
+        try {
+            const checked = [...document.querySelectorAll('.weekly-off-cb:checked')].map(cb => cb.value);
+            const res = await fetch('/api/admin/settings', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ weekly_offs: checked.join(',') })
+            });
+            if (res.ok) showToast('Weekly offs saved');
+            else showToast('Error saving weekly offs', 'error');
+        } finally { btn.disabled = false; btn.textContent = 'Save Weekly Offs'; }
+    }
+
+    // ─── Holidays ───────────────────────────────────────────────────────────────
+    async function loadHolidays() {
+        const res = await fetch('/api/admin/holidays');
+        const holidays = await res.json();
+        const container = document.getElementById('holidays-list');
+        if (!holidays.length) {
+            container.innerHTML = '<div class="text-center text-slate-400 text-xs py-4">No holidays added yet.</div>';
+            return;
+        }
+        container.innerHTML = holidays.map(h => {
+            const d = new Date(h.date + 'T00:00:00');
+            const dateStr = d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
+            return `<div class="flex items-center justify-between px-4 py-2 bg-slate-900/30 rounded-xl border border-slate-700/30">
+                <div class="flex items-center gap-3">
+                    <span class="text-xs font-mono text-slate-400">${dateStr}</span>
+                    <span class="text-sm text-white font-medium">${h.name}</span>
+                </div>
+                <button onclick="deleteHoliday(${h.id})" class="text-red-400 hover:text-red-300 text-xs font-bold px-2 py-1 rounded hover:bg-red-500/10 transition-colors">Remove</button>
+            </div>`;
+        }).join('');
+    }
+
+    async function addHoliday() {
+        const dateEl = document.getElementById('h-date');
+        const nameEl = document.getElementById('h-name');
+        if (!dateEl.value || !nameEl.value.trim()) {
+            showToast('Date and name are required', 'error');
+            return;
+        }
+        const res = await fetch('/api/admin/holidays', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ date: dateEl.value, name: nameEl.value.trim() })
+        });
+        if (res.ok) {
+            showToast('Holiday added');
+            dateEl.value = '';
+            nameEl.value = '';
+            loadHolidays();
+        } else {
+            showToast('Error adding holiday', 'error');
+        }
+    }
+
+    async function deleteHoliday(id) {
+        const res = await fetch(`/api/admin/holidays/${id}`, { method: 'DELETE' });
+        if (res.ok) {
+            showToast('Holiday removed');
+            loadHolidays();
+        } else {
+            showToast('Error removing holiday', 'error');
+        }
+    }
+
     // ─── Categories ──────────────────────────────────────────────────────────────
     async function loadCategories() {
         const res = await fetch('/api/admin/categories');
@@ -477,12 +606,12 @@
             return;
         }
         container.innerHTML = allCategories.map(c => `
-        <div class="flex items-center gap-4 px-5 py-3 hover:bg-slate-700/20 transition-colors" id="cat-row-${c.id}">
+        <div class="flex items-center gap-3 px-5 py-3 hover:bg-slate-700/20 transition-colors" id="cat-row-${c.id}">
             <input type="color" value="${c.color || '#808080'}" onchange="updateCategoryColor(${c.id}, this.value)"
-                class="w-8 h-8 rounded-lg border-0 cursor-pointer bg-transparent">
+                class="w-6 h-6 rounded-md border-0 cursor-pointer bg-transparent p-0 shrink-0">
             <div class="flex-1 min-w-0">
                 <div class="font-semibold text-white text-sm">${c.name}</div>
-                <div class="flex gap-3 mt-1">
+                <div class="flex gap-2 mt-1">
                     ${c.is_focus ? '<span class="text-[9px] font-bold text-emerald-400 bg-emerald-500/10 px-1.5 py-0.5 rounded border border-emerald-500/20">FOCUS</span>' : ''}
                     ${c.is_distraction ? '<span class="text-[9px] font-bold text-red-400 bg-red-500/10 px-1.5 py-0.5 rounded border border-red-500/20">DISTRACTION</span>' : ''}
                     ${c.is_billable ? '<span class="text-[9px] font-bold text-blue-400 bg-blue-500/10 px-1.5 py-0.5 rounded border border-blue-500/20">BILLABLE</span>' : '<span class="text-[9px] font-bold text-slate-500 bg-slate-700/50 px-1.5 py-0.5 rounded border border-slate-600/20">NON-BILLABLE</span>'}
@@ -757,6 +886,8 @@
     // ─── Init ─────────────────────────────────────────────────────────────────────
     loadUsers();
     loadSettings();
+    loadWeeklyOffs();
+    loadHolidays();
     loadCategories();
     loadClients();
 </script>
