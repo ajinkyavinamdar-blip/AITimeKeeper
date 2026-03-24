@@ -1026,7 +1026,19 @@ def api_team_timeline():
         return jsonify({'error': 'Unauthorized'}), 403
     email = g.user['email']
     reports = get_all_reports(email)
-    member_emails = [email] + [r['email'] for r in reports if r['email'].lower() != email.lower()]
+    all_member_emails = [email] + [r['email'] for r in reports if r['email'].lower() != email.lower()]
+
+    # Allow filtering by specific members (comma-separated)
+    members_param = request.args.get('members', '').strip()
+    if members_param:
+        requested = set(e.strip().lower() for e in members_param.split(',') if e.strip())
+        allowed = set(e.lower() for e in all_member_emails)
+        member_emails = [e for e in all_member_emails if e.lower() in requested and e.lower() in allowed]
+        if not member_emails:
+            member_emails = all_member_emails
+    else:
+        member_emails = all_member_emails
+
     date_str = request.args.get('date')
     data = get_team_timeline_stats(member_emails, date_str)
     return jsonify(data)

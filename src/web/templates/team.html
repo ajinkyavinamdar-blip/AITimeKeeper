@@ -546,6 +546,25 @@
 
         const filtered = { ...teamData, members, by_client: byClient, by_category: byCategory, totals: filteredTotals };
         renderAll(filtered);
+
+        // Re-fetch timeline for filtered members
+        refreshTimeline(memberEmails);
+    }
+
+    async function refreshTimeline(memberEmails) {
+        const params = new URLSearchParams({ date: currentDate });
+        if (memberEmails && memberEmails.size > 0) {
+            params.set('members', [...memberEmails].join(','));
+        }
+        try {
+            const res = await fetch(`/api/team/timeline?${params}`);
+            if (res.ok) {
+                const data = await res.json();
+                renderTimeline(data);
+            }
+        } catch (e) {
+            console.error('Timeline refresh failed:', e);
+        }
     }
 
     // ─── Timeline Chart ───────────────────────────────────────────────────────────
