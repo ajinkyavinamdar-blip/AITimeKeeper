@@ -16,12 +16,12 @@
     <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-3 mb-1">
         <div>
             <h1 class="text-lg xl:text-2xl font-bold text-white tracking-tight" id="dashboard-date">--</h1>
-            <p class="text-slate-500 text-xs mt-0.5">Productivity Insights & Activity Distribution</p>
+            <p class="text-slate-400 text-xs mt-0.5">Productivity Insights & Activity Distribution</p>
         </div>
         <div class="flex items-center gap-4 bg-slate-800/50 p-1.5 rounded-2xl border border-slate-700/50 shadow-sm">
             <div class="flex items-center gap-1 px-2">
                 <button onclick="changeDay(-1)"
-                    class="p-1.5 hover:bg-slate-700/50 rounded-lg transition-colors text-slate-400">
+                    class="p-2.5 hover:bg-slate-700/50 rounded-lg transition-colors text-slate-400">
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M15 19l-7-7 7-7">
                         </path>
@@ -38,7 +38,7 @@
                 <input type="date" id="date-jump-input" class="sr-only" />
                 <input type="month" id="month-jump-input" class="sr-only" />
                 <button onclick="changeDay(1)"
-                    class="p-1.5 hover:bg-slate-700/50 rounded-lg transition-colors text-slate-400">
+                    class="p-2.5 hover:bg-slate-700/50 rounded-lg transition-colors text-slate-400">
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M9 5l7 7-7 7"></path>
                     </svg>
@@ -66,7 +66,7 @@
                 <div class="text-2xl xl:text-3xl font-bold text-white mb-1" id="total-time-display">--:--</div>
 
                 <div class="flex items-center gap-2 mt-1">
-                    <div class="text-xs text-slate-500">
+                    <div class="text-xs text-slate-400">
                         Daily Goal: <span class="text-slate-300">9h</span>
                     </div>
                 </div>
@@ -96,7 +96,7 @@
             class="col-span-1 lg:col-span-3 bg-slate-800/50 rounded-2xl p-4 xl:p-5 border border-slate-700/50 backdrop-blur-sm flex flex-col">
             <div class="flex justify-between items-center mb-2">
                 <h3 class="text-xs font-semibold text-slate-400 uppercase tracking-wider">Timeline</h3>
-                <div class="text-xs text-slate-500" id="timeline-subtitle">Hourly Focus & Comms</div>
+                <div class="text-xs text-slate-400" id="timeline-subtitle">Hourly Focus & Comms</div>
             </div>
             <div class="flex-1 w-full h-32 xl:h-40">
                 <canvas id="timelineChart"></canvas>
@@ -111,7 +111,7 @@
         <div class="bg-slate-800/50 rounded-2xl p-4 xl:p-5 border border-slate-700/50 backdrop-blur-sm flex flex-col">
             <h3 class="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-3">Clients</h3>
             <div class="flex-1 overflow-y-auto max-h-40 xl:max-h-48 pr-2 space-y-3" id="client-breakdown-list">
-                <div class="text-center text-slate-500 text-xs py-10">Loading clients...</div>
+                <div class="text-center text-slate-400 text-xs py-10">Loading clients...</div>
             </div>
         </div>
 
@@ -122,7 +122,7 @@
             <div class="flex justify-between items-center px-1">
                 <!-- Focus -->
                 <div class="flex flex-col items-center gap-1.5">
-                    <div class="relative w-20 h-20 xl:w-24 xl:h-24 flex items-center justify-center rounded-full" id="ring-focus"
+                    <div class="relative w-20 h-20 xl:w-24 xl:h-24 flex items-center justify-center rounded-full cursor-pointer" id="ring-focus"
                         style="background: conic-gradient(#10B981 0%, #1e293b 0);">
                         <div class="absolute inset-1 bg-slate-800 rounded-full flex items-center justify-center">
                             <span class="text-base xl:text-lg font-bold text-white" id="score-focus-val">--</span>
@@ -136,7 +136,7 @@
 
                 <!-- Meetings -->
                 <div class="flex flex-col items-center gap-1.5">
-                    <div class="relative w-20 h-20 xl:w-24 xl:h-24 flex items-center justify-center rounded-full" id="ring-meeting"
+                    <div class="relative w-20 h-20 xl:w-24 xl:h-24 flex items-center justify-center rounded-full cursor-pointer" id="ring-meeting"
                         style="background: conic-gradient(#A855F7 0%, #1e293b 0);">
                         <div class="absolute inset-1 bg-slate-800 rounded-full flex items-center justify-center">
                             <span class="text-base xl:text-lg font-bold text-white" id="score-meeting-val">--</span>
@@ -150,7 +150,7 @@
 
                 <!-- Breaks -->
                 <div class="flex flex-col items-center gap-1.5">
-                    <div class="relative w-20 h-20 xl:w-24 xl:h-24 flex items-center justify-center rounded-full" id="ring-break"
+                    <div class="relative w-20 h-20 xl:w-24 xl:h-24 flex items-center justify-center rounded-full cursor-pointer" id="ring-break"
                         style="background: conic-gradient(#3B82F6 0%, #1e293b 0);">
                         <div class="absolute inset-1 bg-slate-800 rounded-full flex items-center justify-center">
                             <span class="text-base xl:text-lg font-bold text-white" id="score-break-val">--</span>
@@ -188,7 +188,7 @@
             <h3 class="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-3 xl:mb-4">Time Breakdown</h3>
             <div class="flex-1 overflow-y-auto pr-2 space-y-4" id="category-breakdown-list">
                 <!-- Injected via JS -->
-                <div class="text-center text-slate-500 text-xs py-10">Loading breakdown...</div>
+                <div class="text-center text-slate-400 text-xs py-10">Loading breakdown...</div>
             </div>
         </div>
 
@@ -785,7 +785,7 @@
                 clientList.appendChild(item);
             });
         } else {
-            clientList.innerHTML = '<div class="text-center text-slate-500 text-xs py-4">No client activity yet</div>';
+            clientList.innerHTML = '<div class="text-center text-slate-400 text-xs py-4">No client activity yet</div>';
         }
 
         // 3. Application Breakdown (Replaces Work Blocks)
@@ -814,7 +814,7 @@
                 appList.appendChild(item);
             });
         } else {
-            appList.innerHTML = '<div class="text-center text-slate-500 text-xs py-4">No apps activity yet</div>';
+            appList.innerHTML = '<div class="text-center text-slate-400 text-xs py-4">No apps activity yet</div>';
         }
 
         // 5. Summary Charts
@@ -848,7 +848,7 @@
                 catList.appendChild(item);
             });
         } else {
-            catList.innerHTML = '<div class="text-center text-slate-500 text-xs py-4">No data yet</div>';
+            catList.innerHTML = '<div class="text-center text-slate-400 text-xs py-4">No data yet</div>';
         }
     }
 

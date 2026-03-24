@@ -31,7 +31,7 @@
             <p class="text-slate-400 text-sm mt-2">Sign in to your TimePulse dashboard</p>
         </div>
 
-        <form action="/login" method="POST" class="space-y-5">
+        <form action="/login" method="POST" class="space-y-5" id="login-form" onsubmit="handleLoginSubmit()">
             <div>
                 <label for="email" class="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Email
                     Address</label>
@@ -44,19 +44,27 @@
                     (Optional)</label>
                 <input type="text" id="name" name="name" placeholder="e.g. Ajinkya"
                     class="w-full bg-slate-900/50 border border-slate-700 rounded-xl px-4 py-3 text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all">
-                <p class="text-[10px] text-slate-500 mt-1">We'll try to extract your name from email if left blank.</p>
+                <p class="text-[11px] text-slate-400 mt-1">We'll try to extract your name from email if left blank.</p>
             </div>
 
-            <button type="submit"
+            <button type="submit" id="login-btn"
                 class="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-3.5 px-4 rounded-xl transition-all shadow-lg shadow-indigo-500/25 active:scale-[0.98]">
                 Access Dashboard
             </button>
         </form>
+        <script>
+            function handleLoginSubmit() {
+                const btn = document.getElementById('login-btn');
+                btn.disabled = true;
+                btn.textContent = 'Signing in...';
+            }
+        </script>
 
         <!-- Desktop Agent Download Section -->
         <div class="mt-8 pt-7 border-t border-slate-700/60">
-            <p class="text-center text-xs font-bold text-slate-400 uppercase tracking-wider mb-4">
-                🖥&nbsp; Get the Desktop Agent
+            <p class="text-center text-xs font-bold text-slate-400 uppercase tracking-wider mb-4 flex items-center justify-center gap-1.5">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>
+                Get the Desktop Agent
             </p>
             <p class="text-center text-[11px] text-slate-500 mb-5 leading-relaxed">
                 The agent runs silently in your system tray, records your activity,

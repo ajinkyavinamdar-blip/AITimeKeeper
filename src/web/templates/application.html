@@ -39,9 +39,10 @@
 
             window.updateGlobalStatus = function updateGlobalStatus(status) {
                 const el = document.getElementById('global-status');
+                const textEl = document.getElementById('global-status-text');
                 if (el) {
-                    el.innerText = status.toUpperCase();
-                    el.className = `text-xs font-bold px-2 ${status === 'running' ? 'text-emerald-500' : 'text-amber-500'}`;
+                    if (textEl) textEl.innerText = status.toUpperCase();
+                    el.className = `text-[11px] font-bold px-3 uppercase tracking-widest flex items-center gap-1.5 ${status === 'running' ? 'text-emerald-500' : 'text-amber-500'}`;
                 }
             };
 
@@ -88,10 +89,18 @@
             opacity: 0.5;
             cursor: not-allowed;
         }
+
+        /* Visible focus rings for accessibility */
+        input:focus-visible, select:focus-visible, textarea:focus-visible {
+            outline: none;
+            box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.7);
+            border-color: #6366f1;
+        }
     </style>
 </head>
 
 <body class="bg-slate-900 text-slate-100 font-sans antialiased selection:bg-indigo-500 selection:text-white">
+    <a href="#main-content" class="sr-only focus:not-sr-only focus:absolute focus:z-[100] focus:top-2 focus:left-2 focus:bg-indigo-600 focus:text-white focus:px-4 focus:py-2 focus:rounded-xl focus:text-sm focus:font-bold">Skip to content</a>
     <div class="flex h-screen overflow-hidden">
         <!-- Sidebar -->
         <div
@@ -246,14 +255,17 @@
                                 </svg>
                             </button>
                             <div class="h-4 w-px bg-slate-700/50 mx-1"></div>
-                            <span class="text-[11px] font-bold text-slate-500 px-3 uppercase tracking-widest"
-                                id="global-status">RUNNING</span>
+                            <span class="text-[11px] font-bold text-slate-500 px-3 uppercase tracking-widest flex items-center gap-1.5"
+                                id="global-status" aria-live="polite">
+                                <span class="w-1.5 h-1.5 rounded-full bg-current" id="global-status-dot"></span>
+                                <span id="global-status-text">RUNNING</span>
+                            </span>
                         </div>
                     </div>
                 </div>
             </header>
 
-            <main class="flex-1 overflow-x-hidden overflow-y-auto bg-slate-900 p-3 xl:p-6">
+            <main id="main-content" class="flex-1 overflow-x-hidden overflow-y-auto bg-slate-900 p-3 xl:p-6">
                 {% block content %}{% endblock %}
             </main>
         </div>

@@ -17,7 +17,7 @@
     <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-3">
         <div>
             <h1 class="text-2xl font-bold text-white tracking-tight" id="team-title">Team Performance</h1>
-            <p class="text-slate-500 text-xs mt-1">Client · Category · Member Breakdown</p>
+            <p class="text-slate-400 text-xs mt-1">Client · Category · Member Breakdown</p>
         </div>
         <div class="flex flex-wrap items-center gap-2">
             <!-- Member Filter (multi-select) -->
@@ -49,7 +49,7 @@
             <div class="flex items-center gap-4 bg-slate-800/50 p-1.5 rounded-2xl border border-slate-700/50 shadow-sm">
                 <div class="flex items-center gap-1 px-2">
                     <button onclick="changeDay(-1)"
-                        class="p-1.5 hover:bg-slate-700/50 rounded-lg transition-colors text-slate-400">
+                        class="p-2.5 hover:bg-slate-700/50 rounded-lg transition-colors text-slate-400">
                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5"
                                 d="M15 19l-7-7 7-7" />
@@ -59,7 +59,7 @@
                         Today
                     </div>
                     <button onclick="changeDay(1)"
-                        class="p-1.5 hover:bg-slate-700/50 rounded-lg transition-colors text-slate-400">
+                        class="p-2.5 hover:bg-slate-700/50 rounded-lg transition-colors text-slate-400">
                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M9 5l7 7-7 7" />
                         </svg>
@@ -92,7 +92,7 @@
                 <div class="flex items-center gap-2">
                     <span class="text-xs text-emerald-400 font-semibold" id="card-billable">--</span>
                     <span class="text-xs text-slate-600">billable</span>
-                    <span class="text-xs text-slate-500" id="card-billable-pct"></span>
+                    <span class="text-xs text-slate-400" id="card-billable-pct"></span>
                 </div>
                 <div class="flex items-center gap-2">
                     <span class="text-xs text-slate-400 font-semibold" id="card-nonbillable">--</span>
@@ -113,7 +113,7 @@
             class="col-span-1 lg:col-span-3 bg-slate-800/50 rounded-2xl p-4 xl:p-5border border-slate-700/50 backdrop-blur-sm flex flex-col">
             <div class="flex justify-between items-center mb-4">
                 <h3 class="text-xs font-semibold text-slate-400 uppercase tracking-wider">Timeline</h3>
-                <div class="text-xs text-slate-500">Hourly Focus &amp; Comms</div>
+                <div class="text-xs text-slate-400">Hourly Focus &amp; Comms</div>
             </div>
             <div class="flex-1 w-full h-32 xl:h-40">
                 <canvas id="teamTimelineChart"></canvas>
@@ -128,7 +128,7 @@
         <div class="bg-slate-800/50 rounded-2xl p-4 xl:p-5border border-slate-700/50 backdrop-blur-sm flex flex-col">
             <h3 class="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-4">Clients</h3>
             <div class="flex-1 overflow-y-auto max-h-48 pr-2 space-y-4" id="team-client-bar-list">
-                <div class="text-center text-slate-500 text-xs py-10">Loading...</div>
+                <div class="text-center text-slate-400 text-xs py-10">Loading...</div>
             </div>
         </div>
 
@@ -136,7 +136,7 @@
         <div class="bg-slate-800/50 rounded-2xl p-4 xl:p-5border border-slate-700/50 backdrop-blur-sm flex flex-col">
             <h3 class="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-4">Time Breakdown</h3>
             <div class="flex-1 overflow-y-auto max-h-48 pr-2 space-y-4" id="team-category-list">
-                <div class="text-center text-slate-500 text-xs py-10">Loading...</div>
+                <div class="text-center text-slate-400 text-xs py-10">Loading...</div>
             </div>
         </div>
 
@@ -198,7 +198,7 @@
                 Non-Billable</span>
         </div>
         <div class="overflow-y-auto max-h-48 pr-2 space-y-4" id="members-list">
-            <div class="text-center text-slate-500 text-xs py-10">Loading...</div>
+            <div class="text-center text-slate-400 text-xs py-10">Loading...</div>
         </div>
     </div>
 
@@ -238,7 +238,7 @@
                 <div class="text-[11px] text-violet-400 uppercase tracking-wider font-bold mb-1" id="modal-breadcrumb">
                     Team · Member Detail</div>
                 <h2 class="text-xl font-bold text-white" id="modal-member-name">Member</h2>
-                <p class="text-xs text-slate-500 mt-0.5" id="modal-date-label"></p>
+                <p class="text-xs text-slate-400 mt-0.5" id="modal-date-label"></p>
             </div>
             <button onclick="closeMemberModal()"
                 class="p-2 hover:bg-slate-700 rounded-xl text-slate-400 hover:text-white transition-colors">
@@ -414,6 +414,17 @@
                 dd.classList.add('hidden');
                 applyFilters();
             }
+        }
+    });
+
+    // Keyboard navigation for member dropdown
+    document.addEventListener('keydown', function(e) {
+        const dd = document.getElementById('member-dropdown');
+        if (!dd || dd.classList.contains('hidden')) return;
+        if (e.key === 'Escape') {
+            dd.classList.add('hidden');
+            applyFilters();
+            document.getElementById('member-filter-btn').focus();
         }
     });
 
@@ -652,7 +663,7 @@
         const container = document.getElementById('members-list');
         const GOAL = 9 * 3600; // 9h work goal in seconds
         if (!data.members || !data.members.length) {
-            container.innerHTML = '<div class="text-center text-slate-500 text-xs py-10">No team members found.<br>Add team members in Admin → Users.</div>';
+            container.innerHTML = '<div class="text-center text-slate-400 text-xs py-10">No team members found.<br>Add team members in Admin → Users.</div>';
             return;
         }
         // For day view, goal is 9h. For week view, multiply by 5 work days. For month, by ~22.
@@ -691,7 +702,7 @@
         const container = document.getElementById('team-client-bar-list');
         const total = data.totals.total_time || 1;
         if (!data.by_client || !data.by_client.length) {
-            container.innerHTML = '<div class="text-center text-slate-500 text-xs py-10">No client data in this range.</div>';
+            container.innerHTML = '<div class="text-center text-slate-400 text-xs py-10">No client data in this range.</div>';
             return;
         }
         // Store for safe onclick lookup
@@ -720,7 +731,7 @@
         const container = document.getElementById('team-category-list');
         const total = data.totals.total_time || 1;
         if (!data.by_category || !data.by_category.length) {
-            container.innerHTML = '<div class="text-center text-slate-500 text-xs py-10">No category data in this range.</div>';
+            container.innerHTML = '<div class="text-center text-slate-400 text-xs py-10">No category data in this range.</div>';
             return;
         }
         // Store categories at offset after clients for safe onclick
@@ -769,7 +780,7 @@
             document.getElementById('drill-content').innerHTML = '<div class="text-center text-slate-500 py-20">No data available.</div>';
         } else {
             document.getElementById('drill-content').innerHTML = `
-            <div class="text-xs text-slate-500 mb-3">${entries.length} team member${entries.length !== 1 ? 's' : ''} · ${fmtTime(totalSec)} total</div>
+            <div class="text-xs text-slate-400 mb-3">${entries.length} team member${entries.length !== 1 ? 's' : ''} · ${fmtTime(totalSec)} total</div>
             ${entries.map(([email, secs]) => {
                 const name = memberNameMap[email] || email.split('@')[0];
                 const pct = Math.round((secs / totalSec) * 100);
