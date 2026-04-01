@@ -216,6 +216,18 @@ def init_db():
             )
         ''')
 
+        # ── Enable Row-Level Security on ALL tables ────────────────────────
+        # This blocks access via Supabase's public REST API (PostgREST)
+        # while direct psycopg2 connections (using the postgres role) bypass RLS.
+        # No policies = deny all via the anon/authenticated Supabase roles.
+        rls_tables = [
+            'activities', 'clients', 'client_mappings', 'categories',
+            'category_mappings', 'api_tokens', 'users', 'client_users',
+            'org_settings', 'holidays',
+        ]
+        for tbl in rls_tables:
+            c.execute(f'ALTER TABLE {tbl} ENABLE ROW LEVEL SECURITY')
+
         # Seed admin user
         c.execute("INSERT INTO users (email, name, role) VALUES (%s, %s, 'admin') ON CONFLICT (email) DO NOTHING",
                   (SEED_ADMIN_EMAIL, SEED_ADMIN_NAME))
