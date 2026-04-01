@@ -179,6 +179,8 @@ def init_db():
         c.execute("CREATE INDEX IF NOT EXISTS idx_activities_server_ts ON activities(server_timestamp)")
         c.execute("CREATE INDEX IF NOT EXISTS idx_activities_category ON activities(category_id)")
         c.execute("CREATE INDEX IF NOT EXISTS idx_activities_ts_user ON activities(timestamp, user_email)")
+        c.execute("CREATE INDEX IF NOT EXISTS idx_activities_user_ts ON activities(LOWER(user_email), timestamp)")
+        c.execute("CREATE INDEX IF NOT EXISTS idx_activities_app_ts ON activities(app_name, timestamp)")
         c.execute("CREATE INDEX IF NOT EXISTS idx_category_mappings_cat ON category_mappings(category_id)")
         c.execute("CREATE INDEX IF NOT EXISTS idx_api_tokens_email ON api_tokens(LOWER(user_email))")
         
@@ -647,8 +649,8 @@ def get_todays_activities(date_str=None, app_filter=None, title_filter=None, cli
                 query += " AND category_id = %s"
                 params.append(category_filter)
             
-        query += " ORDER BY timestamp DESC"
-        
+        query += " ORDER BY timestamp DESC LIMIT 2000"
+
         c.execute(query, tuple(params))
         rows = c.fetchall()
         return rows
@@ -833,7 +835,7 @@ def get_application_activities(app_name, date_str=None, user_email=None):
 
         if user_email:
             c.execute('''
-                SELECT * FROM activities
+                SELECT id, timestamp, app_name, window_title, duration, category_id, client FROM activities
                 WHERE app_name = %s AND timestamp >= %s AND timestamp <= %s
                   AND LOWER(user_email) = LOWER(%s)
                 ORDER BY timestamp DESC
@@ -841,7 +843,7 @@ def get_application_activities(app_name, date_str=None, user_email=None):
             ''', (app_name, start_time, end_time, user_email))
         else:
             c.execute('''
-                SELECT * FROM activities
+                SELECT id, timestamp, app_name, window_title, duration, category_id, client FROM activities
                 WHERE app_name = %s AND timestamp >= %s AND timestamp <= %s
                 ORDER BY timestamp DESC
                 LIMIT 100
@@ -1085,7 +1087,7 @@ def get_work_blocks(date_str=None, user_email=None):
 
         ue_sql, ue_params = _user_email_clause(user_email, alias='')
         c.execute(f'''
-            SELECT * FROM activities
+            SELECT id, timestamp, app_name, duration, client, category_id FROM activities
             WHERE timestamp >= %s AND timestamp <= %s{ue_sql}
             ORDER BY timestamp ASC
         ''', [start_time, end_time] + ue_params)

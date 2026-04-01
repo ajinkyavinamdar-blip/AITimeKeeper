@@ -217,7 +217,7 @@ def get_aggregated_activities(minutes=10, date_str=None, app_filter=None, title_
         end_time = f"{date_str} 23:59:59"
         
         ue_sql, ue_params = _ue_clause(user_email)
-        query = f"SELECT * FROM activities WHERE timestamp >= %s AND timestamp <= %s{ue_sql}"
+        query = f"SELECT id, timestamp, app_name, window_title, url_or_filename, client, duration, category_id FROM activities WHERE timestamp >= %s AND timestamp <= %s{ue_sql}"
         params = [start_time, end_time] + ue_params
         
         if app_filter:
@@ -349,12 +349,14 @@ def get_summarized_logs(date_str=None, app_filter=None, title_filter=None, clien
                 category_id,
                 client,
                 SUM(duration) as total_duration,
+                COUNT(*) as activity_count,
                 MAX(timestamp) as last_timestamp,
-                STRING_AGG(id::text, ',') as ids
+                STRING_AGG(id::text, ',' ORDER BY id DESC) as ids
             FROM activities
             {query_where}
             GROUP BY app_name, window_title, url_or_filename, category_id, client
             ORDER BY total_duration DESC
+            LIMIT 500
         '''
         
         c.execute(query, tuple(params))
@@ -363,7 +365,7 @@ def get_summarized_logs(date_str=None, app_filter=None, title_filter=None, clien
         
         for r in rows:
             if r['ids']:
-                r['ids'] = [int(i) for i in r['ids'].split(',')]
+                r['ids'] = [int(i) for i in r['ids'].split(',')[:100]]
             else:
                 r['ids'] = []
                 
@@ -929,7 +931,9 @@ def get_member_detail(member_email, start_date, end_date):
         end_time = f"{end_date} 23:59:59"
         
         c.execute('''
-            SELECT a.*, c.name as category_name, c.color as category_color, c.is_focus
+            SELECT a.id, a.timestamp, a.app_name, a.window_title, a.duration,
+                   a.category_id, a.client,
+                   c.name as category_name, c.color as category_color, c.is_focus
             FROM activities a
             LEFT JOIN categories c ON a.category_id = c.id
             WHERE LOWER(a.user_email) = LOWER(%s)
@@ -969,7 +973,7 @@ def get_member_detail(member_email, start_date, end_date):
             'by_client': c_list,
             'by_category': cat_list,
             'by_app': app_list,
-            'activities': rows[:200]
+            'activities': rows[:50]
         }
     finally:
         release_db_connection(conn)
